@@ -5,7 +5,11 @@
   "scripts": {
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",
-    "db:init": "bun src/db/init.ts"
+    "db:init": "bun src/db/init.ts",
+    "test": "bun test src/services/lrclib.test.ts src/services/genius.test.ts src/services/youtube.test.ts && bun test src/services/translation/index.test.ts && bun test src/routes/",
+    "test:unit": "bun test src/services/lrclib.test.ts src/services/genius.test.ts src/services/youtube.test.ts",
+    "test:translation": "bun test src/services/translation/index.test.ts",
+    "test:routes": "bun test src/routes/"
   },
   "dependencies": {
     "hono": "^4.7.0",

@@ -1,9 +1,12 @@
 import type { TranslationResult } from "@lyrilearn/shared";
 import type { TranslationProvider } from "./provider";
 
-const GOOGLE_API_KEY = Bun.env.GOOGLE_CLOUD_API_KEY;
 const GOOGLE_TRANSLATE_URL =
   "https://translation.googleapis.com/language/translate/v2";
+
+function getApiKey(): string | undefined {
+  return Bun.env.GOOGLE_CLOUD_API_KEY;
+}
 
 interface GoogleTranslateResponse {
   data: {
@@ -22,7 +25,8 @@ export class CloudProvider implements TranslationProvider {
     sourceLang: string,
     targetLang: string
   ): Promise<TranslationResult> {
-    if (!GOOGLE_API_KEY) {
+    const apiKey = getApiKey();
+    if (!apiKey) {
       throw new Error("GOOGLE_CLOUD_API_KEY not configured");
     }
 
@@ -32,7 +36,7 @@ export class CloudProvider implements TranslationProvider {
       q: text,
       source: sourceLang,
       target: targetLang,
-      key: GOOGLE_API_KEY,
+      key: apiKey!,
       format: "text",
     });
 
@@ -55,6 +59,6 @@ export class CloudProvider implements TranslationProvider {
   }
 
   async isAvailable(): Promise<boolean> {
-    return !!GOOGLE_API_KEY;
+    return !!getApiKey();
   }
 }
