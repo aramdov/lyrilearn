@@ -1,0 +1,15 @@
+{
+  "name": "lyri-learn",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:server": "cd apps/server && bun run dev",
+    "dev:web": "cd apps/web && bun run dev",
+    "db:init": "cd apps/server && bun run db:init",
+    "seed": "bun run scripts/seed-songs.ts",
+    "benchmark": "bun run scripts/benchmark.ts"
+  }
+}

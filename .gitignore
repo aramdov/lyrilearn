@@ -1,0 +1,9 @@
+node_modules/
+.env
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+apps/inference/.venv/
+dist/
+.DS_Store

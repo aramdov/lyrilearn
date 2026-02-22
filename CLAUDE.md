@@ -15,7 +15,7 @@ LyriLearn is a web app for learning languages through song lyrics. Users search 
 - **Frontend:** React + TypeScript + Tailwind CSS + shadcn/ui
 - **Database:** SQLite (Bun's built-in `bun:sqlite`)
 - **Offline storage:** IndexedDB via `idb` library (browser-side flashcards)
-- **Translation (primary):** TranslateGemma 12B 4-bit via MLX + FastAPI (`localhost:8000`)
+- **Translation (primary):** TranslateGemma via MLX + FastAPI (`localhost:8000`) — 12B and 4B models, togglable
 - **Translation (fallback):** Google Cloud Translation API
 - **Lyrics:** LRCLIB (synced lyrics) + Genius API (metadata)
 - **Video:** YouTube IFrame Player API (playback) + Data API v3 (search)
@@ -36,7 +36,7 @@ lyri-learn/
 │   │   │   │   ├── LyricsView.tsx       # side-by-side source | translation
 │   │   │   │   ├── YouTubePlayer.tsx
 │   │   │   │   ├── TranslitToggle.tsx
-│   │   │   │   ├── ProviderToggle.tsx   # Local Model / Google Translate switch
+│   │   │   │   ├── ProviderToggle.tsx   # Local 12B / Local 4B / Google Translate switch
 │   │   │   │   ├── FlashcardDeck.tsx
 │   │   │   │   └── FlashcardReview.tsx
 │   │   │   ├── lib/
@@ -139,6 +139,8 @@ The local provider calls a FastAPI inference server (wrapping `mlx-lm`) at `loca
 
 ```bash
 # MLX inference server API
+
+# Translate with default model (12B)
 POST http://localhost:8000/translate
 {
   "text": "Я тебя люблю",
@@ -146,18 +148,31 @@ POST http://localhost:8000/translate
 }
 → { "translation": "I love you", "latency_ms": 342, "model": "translategemma-12b-4bit" }
 
+# Translate with specific model (4B — faster, lighter)
+POST http://localhost:8000/translate
+{
+  "text": "Я тебя люблю",
+  "target_lang": "en",
+  "model": "translategemma-4b-4bit"
+}
+→ { "translation": "I love you", "latency_ms": 120, "model": "translategemma-4b-4bit" }
+
+# Health check — shows loaded and available models
 GET http://localhost:8000/health
-→ { "status": "ok", "model": "translategemma-12b-4bit", "backend": "mlx" }
+→ { "status": "ok", "default_model": "translategemma-12b-4bit",
+    "loaded_models": ["translategemma-12b-4bit"],
+    "available_models": ["translategemma-12b-4bit", "translategemma-4b-4bit"],
+    "backend": "mlx" }
 ```
 
-TranslateGemma uses language tags like `<2en>` (translate to English), `<2ru>` (translate to Russian), etc., prepended to the source text. The FastAPI server handles prompt formatting internally.
+TranslateGemma uses language tags like `<2en>` (translate to English), `<2ru>` (translate to Russian), etc., prepended to the source text. The FastAPI server handles prompt formatting internally. The `model` parameter is optional — defaults to 12B. The 4B model is loaded lazily on first use.
 
 ### Caching Strategy
 
-All translations are cached in SQLite, keyed by `(lyrics_id, target_lang, provider)`. This means:
+All translations are cached in SQLite, keyed by `(lyrics_id, target_lang, provider, model_variant)`. This means:
 - First translation of a line costs an API call or inference pass
-- Every subsequent request for the same line + lang + provider is instant (DB lookup)
-- Translations from both providers are cached independently (useful for comparison)
+- Every subsequent request for the same line + lang + provider + model is instant (DB lookup)
+- Translations from all providers/models are cached independently (useful for comparison)
 
 ### Rate Limiting
 
