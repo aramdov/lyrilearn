@@ -1,7 +1,6 @@
 import type { LyricLine } from "@lyrilearn/shared";
 import type { LyricsTranslation } from "@/lib/api";
-
-type ViewMode = "side-by-side" | "interleaved";
+import type { ViewMode } from "@/hooks/useSongView";
 
 interface LyricsDisplayProps {
   lyrics: LyricLine[];

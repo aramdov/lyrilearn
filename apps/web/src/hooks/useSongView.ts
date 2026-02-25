@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import type { Song, LyricLine, Provider, LocalModel } from "@lyrilearn/shared";
 import * as api from "@/lib/api";
 import type { LyricsTranslation } from "@/lib/api";
@@ -21,12 +21,18 @@ export function useSongView(settings: Settings) {
   const [translating, setTranslating] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
 
-  const translateLines = async (lines: LyricLine[], s: Settings) => {
+  // Generation counter — incremented on each fetch cycle.
+  // Stale translation results from a previous cycle are discarded.
+  const generationRef = useRef(0);
+
+  const translateLines = async (lines: LyricLine[], s: Settings, generation: number) => {
     const CONCURRENCY = 5;
     const queue = [...lines];
 
     const worker = async () => {
       while (queue.length > 0) {
+        if (generationRef.current !== generation) return; // stale — abort
+
         const line = queue.shift()!;
         setTranslating((prev) => new Set(prev).add(line.id));
 
@@ -39,6 +45,9 @@ export function useSongView(settings: Settings) {
             line.id,
             s.provider === "local" ? s.localModel : undefined
           );
+
+          if (generationRef.current !== generation) return; // stale — discard
+
           setTranslations((prev) => {
             const next = new Map(prev);
             next.set(line.id, {
@@ -52,11 +61,13 @@ export function useSongView(settings: Settings) {
         } catch {
           // Line translation failed — leave it empty, don't block others
         } finally {
-          setTranslating((prev) => {
-            const next = new Set(prev);
-            next.delete(line.id);
-            return next;
-          });
+          if (generationRef.current === generation) {
+            setTranslating((prev) => {
+              const next = new Set(prev);
+              next.delete(line.id);
+              return next;
+            });
+          }
         }
       }
     };
@@ -65,7 +76,9 @@ export function useSongView(settings: Settings) {
   };
 
   const fetchTranslations = async (songId: number, s: Settings) => {
+    const generation = ++generationRef.current;
     setTranslations(new Map());
+    setTranslating(new Set());
     setLyricsLoading(true);
     setError(null);
     try {
@@ -75,6 +88,9 @@ export function useSongView(settings: Settings) {
         s.provider,
         s.provider === "local" ? s.localModel : undefined
       );
+
+      if (generationRef.current !== generation) return; // stale — discard
+
       setLyrics(data.lyrics);
       const transMap = new Map<number, LyricsTranslation>();
       for (const t of data.translations) {
@@ -86,12 +102,15 @@ export function useSongView(settings: Settings) {
         (l) => !transMap.has(l.id) && l.text.trim()
       );
       if (untranslated.length > 0) {
-        translateLines(untranslated, s);
+        translateLines(untranslated, s, generation);
       }
     } catch (err) {
+      if (generationRef.current !== generation) return;
       setError(err instanceof Error ? err.message : "Failed to load lyrics");
     } finally {
-      setLyricsLoading(false);
+      if (generationRef.current === generation) {
+        setLyricsLoading(false);
+      }
     }
   };
 
@@ -104,9 +123,11 @@ export function useSongView(settings: Settings) {
   };
 
   const clearSong = () => {
+    generationRef.current++;
     setCurrentSong(null);
     setLyrics([]);
     setTranslations(new Map());
+    setTranslating(new Set());
     setError(null);
   };
 

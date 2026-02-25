@@ -1,5 +1,6 @@
 import type { Provider, LocalModel } from "@lyrilearn/shared";
 import type { ProviderStatus } from "@/lib/api";
+import type { ViewMode } from "@/hooks/useSongView";
 import {
   Select,
   SelectContent,
@@ -8,8 +9,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-
-type ViewMode = "side-by-side" | "interleaved";
 
 interface LyricsToolbarProps {
   sourceLang: string;

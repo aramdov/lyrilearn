@@ -129,9 +129,11 @@ export default function App() {
               localModel={settings.localModel}
               viewMode={settings.viewMode}
               config={config}
-              onSourceLangChange={(lang) =>
-                setSettings((s) => ({ ...s, sourceLang: lang }))
-              }
+              onSourceLangChange={(lang) => {
+                const newSettings: Settings = { ...settings, sourceLang: lang };
+                setSettings(newSettings);
+                songView.refetchTranslations(newSettings);
+              }}
               onTargetLangChange={handleTargetLangChange}
               onProviderChange={handleProviderChange}
               onViewModeChange={(mode: ViewMode) =>
