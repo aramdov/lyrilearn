@@ -31,7 +31,11 @@ lyri-learn/
 │   │       ├── routes/     # search, lyrics, translate, config
 │   │       ├── services/   # translation providers, lrclib, genius, youtube
 │   │       └── db/         # SQLite schema + connection
-│   └── web/                # React frontend (Phase 2)
+│   └── web/                # React frontend
+│       └── src/
+│           ├── components/ # Header, SearchBar, LyricsDisplay, etc.
+│           ├── hooks/      # useSongView custom hook
+│           └── lib/        # API client, utils
 ├── packages/
 │   └── shared/             # Shared TypeScript types
 ├── scripts/                # setup-mlx.sh, benchmark.ts, seed-songs.ts
@@ -98,7 +102,7 @@ All external API keys are optional. The app degrades gracefully — LRCLIB lyric
 # Start backend (port 3001)
 bun run dev:server
 
-# Start frontend (port 5173) — coming in Phase 2
+# Start frontend (port 5173, proxies /api to backend)
 bun run dev:web
 ```
 
@@ -160,8 +164,8 @@ bun run db:init
 | Phase | Description | Status |
 |-------|-------------|--------|
 | **Phase 1** | Translation Engine + Core Backend | **Complete** |
-| **Phase 2** | Frontend Core (React, search, lyrics view, YouTube, provider toggle) | Up Next |
-| Phase 3 | Karaoke sync + Transliteration | Planned |
+| **Phase 2** | Frontend Core (React, search, lyrics view, YouTube, provider toggle) | **Complete** |
+| **Phase 3** | Karaoke sync + Transliteration | Up Next |
 | Phase 4 | Flashcards (IndexedDB) | Planned |
 | Phase 5 | Polish + Deploy | Planned |
 
@@ -178,6 +182,18 @@ All backend infrastructure is in place:
 - End-to-end tested with synced lyrics (92 lines for "Shape of You")
 
 See `dev-log/` for detailed development notes.
+
+### Phase 2 — Complete
+
+React SPA with all core UI components:
+- Persistent search bar in header with state-driven view switching (no router)
+- Search results with song artwork, metadata, and "View Lyrics" action
+- YouTube video embed via IFrame Player API
+- Side-by-side and interleaved lyrics display with toggleable views
+- Language selector (source + target) and provider toggle (Local 12B / Local 4B / Google)
+- Concurrent translation loading (5 parallel workers) with per-line progress
+- Generation-based staleness protection for rapid provider/language switching
+- Typed API client wrapping all backend endpoints
 
 ## License
 
