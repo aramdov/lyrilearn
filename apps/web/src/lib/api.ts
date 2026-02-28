@@ -22,10 +22,17 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
 // ─── Search ─────────────────────────────────────────────────
 
+export interface YouTubeResult {
+  videoId: string;
+  title: string;
+  channelTitle: string;
+  thumbnailUrl?: string;
+}
+
 export interface SearchResponse {
   song: Song;
   lyrics: LyricLine[];
-  videoId?: string;
+  youtubeResults: YouTubeResult[];
 }
 
 export function search(

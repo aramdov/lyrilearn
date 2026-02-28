@@ -39,9 +39,9 @@ searchRoutes.post("/", async (c) => {
     const topLrclib = lrclibResults[0] || null;
 
     // 3. Search Genius for metadata (parallel with YouTube)
-    const [geniusResults, youtubeResult] = await Promise.all([
+    const [geniusResults, youtubeResults] = await Promise.all([
       searchGenius(query).catch(() => []),
-      searchYouTube(`${query} official audio`).catch(() => null),
+      searchYouTube(`${query} official audio`).catch(() => []),
     ]);
 
     const topGenius = geniusResults[0] || null;
@@ -84,7 +84,7 @@ searchRoutes.post("/", async (c) => {
       title: topLrclib?.trackName || topGenius?.title || query,
       artist: topLrclib?.artistName || topGenius?.artist || "Unknown",
       sourceLang,
-      youtubeId: youtubeResult?.videoId,
+      youtubeId: youtubeResults[0]?.videoId,
       geniusId: topGenius?.id?.toString(),
       lrclibId: topLrclib?.id?.toString(),
       artworkUrl: topGenius?.artworkUrl,
@@ -150,7 +150,7 @@ searchRoutes.post("/", async (c) => {
       }
     }
 
-    const result = { song, lyrics, videoId: youtubeResult?.videoId };
+    const result = { song, lyrics, youtubeResults };
 
     // 7. Cache the search result
     db.query(

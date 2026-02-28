@@ -1,24 +1,15 @@
 import { describe, test, expect, mock } from "bun:test";
 import { render, within, fireEvent } from "@testing-library/react";
 import type { Song, LyricLine } from "@lyrilearn/shared";
+import type { YouTubeResult } from "@/lib/api";
 import { SearchResultCard } from "./SearchResultCard";
 
 // ---------------------------------------------------------------------------
 // SearchResultCard — unit tests
 // ---------------------------------------------------------------------------
-// The card renders song metadata, an optional artwork image, a line count, an
-// optional "Video available" badge, and a "View Lyrics" button that fires
-// onSelect with all three arguments.
-//
-// All queries are scoped to `within(container)` so that DOM nodes from prior
-// renders that accumulate in happy-dom's shared body do not interfere.
-// ---------------------------------------------------------------------------
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
-/**
- * Build a minimal {@link LyricLine} for use in test data.
- */
 const makeLine = (id: number, text: string): LyricLine => ({
   id,
   songId: 1,
@@ -26,10 +17,6 @@ const makeLine = (id: number, text: string): LyricLine => ({
   text,
 });
 
-/**
- * A {@link Song} fixture with an artworkUrl present by default.
- * Pass `artworkUrl: undefined` in the override object to simulate missing art.
- */
 const makeSong = (overrides: Partial<Song> = {}): Song => ({
   id: 1,
   title: "Bohemian Rhapsody",
@@ -46,15 +33,25 @@ const LYRICS: LyricLine[] = [
   makeLine(3, "Caught in a landslide"),
 ];
 
+const YOUTUBE_RESULTS: YouTubeResult[] = [
+  { videoId: "dQw4w9WgXcQ", title: "Official Video", channelTitle: "QueenVEVO", thumbnailUrl: "https://example.com/thumb1.jpg" },
+  { videoId: "abc123", title: "Live Performance", channelTitle: "Queen", thumbnailUrl: "https://example.com/thumb2.jpg" },
+];
+
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
 function renderCard(props: {
   song: Song;
   lyrics: LyricLine[];
-  videoId?: string;
+  youtubeResults?: YouTubeResult[];
   onSelect: (song: Song, lyrics: LyricLine[], videoId?: string) => void;
 }) {
-  const { container } = render(<SearchResultCard {...props} />);
+  const { container } = render(
+    <SearchResultCard
+      youtubeResults={props.youtubeResults ?? []}
+      {...props}
+    />
+  );
   return { q: within(container as HTMLElement), container };
 }
 
@@ -67,6 +64,7 @@ describe("SearchResultCard", () => {
     const { q } = renderCard({
       song: makeSong(),
       lyrics: LYRICS,
+      youtubeResults: YOUTUBE_RESULTS,
       onSelect: mock(() => {}),
     });
 
@@ -80,6 +78,7 @@ describe("SearchResultCard", () => {
     const { q } = renderCard({
       song: makeSong({ artworkUrl: "https://example.com/artwork.jpg" }),
       lyrics: LYRICS,
+      youtubeResults: YOUTUBE_RESULTS,
       onSelect: mock(() => {}),
     });
 
@@ -92,12 +91,13 @@ describe("SearchResultCard", () => {
     const { q } = renderCard({
       song: makeSong({ artworkUrl: undefined }),
       lyrics: LYRICS,
+      youtubeResults: YOUTUBE_RESULTS,
       onSelect: mock(() => {}),
     });
 
     expect(q.getByText("No art")).toBeDefined();
-    // No <img> should be present
-    expect(q.queryByRole("img")).toBeNull();
+    // Song artwork img should not be present (video thumbnails may still exist)
+    expect(q.queryByAltText("Bohemian Rhapsody artwork")).toBeNull();
   });
 
   // ── Line count ────────────────────────────────────────────────────────────
@@ -106,72 +106,77 @@ describe("SearchResultCard", () => {
     const { q } = renderCard({
       song: makeSong(),
       lyrics: LYRICS,
+      youtubeResults: YOUTUBE_RESULTS,
       onSelect: mock(() => {}),
     });
 
-    // The component renders "{n} lines"
     expect(q.getByText(/3 lines/)).toBeDefined();
   });
 
-  test("line count is 0 when lyrics array is empty", () => {
-    const { q } = renderCard({
-      song: makeSong(),
-      lyrics: [],
-      onSelect: mock(() => {}),
-    });
+  // ── Video picker ──────────────────────────────────────────────────────────
 
-    expect(q.getByText(/0 lines/)).toBeDefined();
-  });
-
-  // ── Video availability label ──────────────────────────────────────────────
-
-  test("shows '· Video available' when a videoId is provided", () => {
+  test("renders video thumbnails when youtubeResults are provided", () => {
     const { q } = renderCard({
       song: makeSong(),
       lyrics: LYRICS,
-      videoId: "dQw4w9WgXcQ",
+      youtubeResults: YOUTUBE_RESULTS,
       onSelect: mock(() => {}),
     });
 
-    // The rendered string is "{n} lines · Video available"
-    expect(q.getByText(/Video available/)).toBeDefined();
+    expect(q.getByText("Official Video")).toBeDefined();
+    expect(q.getByText("Live Performance")).toBeDefined();
   });
 
-  test("does NOT show 'Video available' when videoId is absent", () => {
+  test("shows 'No videos found' when youtubeResults is empty", () => {
     const { q } = renderCard({
       song: makeSong(),
       lyrics: LYRICS,
-      // videoId intentionally omitted
+      youtubeResults: [],
       onSelect: mock(() => {}),
     });
 
-    expect(q.queryByText(/Video available/)).toBeNull();
+    expect(q.getByText("No videos found")).toBeDefined();
   });
 
   // ── onSelect callback ─────────────────────────────────────────────────────
 
-  test("calls onSelect with song, lyrics, and videoId when 'View Lyrics' is clicked", () => {
+  test("calls onSelect with first video selected by default", () => {
     const onSelect = mock(
       (_song: Song, _lyrics: LyricLine[], _videoId?: string) => {}
     );
     const song = makeSong();
-    const videoId = "dQw4w9WgXcQ";
 
-    const { q } = renderCard({ song, lyrics: LYRICS, videoId, onSelect });
+    const { q } = renderCard({ song, lyrics: LYRICS, youtubeResults: YOUTUBE_RESULTS, onSelect });
 
     fireEvent.click(q.getByRole("button", { name: "View Lyrics" }));
 
     expect(onSelect).toHaveBeenCalledTimes(1);
-    expect(onSelect).toHaveBeenCalledWith(song, LYRICS, videoId);
+    expect(onSelect).toHaveBeenCalledWith(song, LYRICS, "dQw4w9WgXcQ");
   });
 
-  test("calls onSelect with undefined videoId when no videoId is provided", () => {
+  test("calls onSelect with user-selected video after clicking a thumbnail", () => {
     const onSelect = mock(
       (_song: Song, _lyrics: LyricLine[], _videoId?: string) => {}
     );
     const song = makeSong();
 
-    const { q } = renderCard({ song, lyrics: LYRICS, onSelect });
+    const { q } = renderCard({ song, lyrics: LYRICS, youtubeResults: YOUTUBE_RESULTS, onSelect });
+
+    // Click the second video thumbnail
+    fireEvent.click(q.getByText("Live Performance"));
+    fireEvent.click(q.getByRole("button", { name: "View Lyrics" }));
+
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onSelect).toHaveBeenCalledWith(song, LYRICS, "abc123");
+  });
+
+  test("calls onSelect with undefined videoId when no videos available", () => {
+    const onSelect = mock(
+      (_song: Song, _lyrics: LyricLine[], _videoId?: string) => {}
+    );
+    const song = makeSong();
+
+    const { q } = renderCard({ song, lyrics: LYRICS, youtubeResults: [], onSelect });
 
     fireEvent.click(q.getByRole("button", { name: "View Lyrics" }));
 

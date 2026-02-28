@@ -8,7 +8,7 @@ import { parseSyncedLyrics, parsePlainLyrics } from "../services/lrclib";
   lrclibResults: [] as any[],
   lrclibLyrics: null as any,
   geniusResults: [] as any[],
-  youtubeResult: null as any,
+  youtubeResults: [] as any[],
   dbData: new Map<string, any>(),
 };
 
@@ -25,7 +25,7 @@ mock.module("../services/genius", () => ({
 }));
 
 mock.module("../services/youtube", () => ({
-  searchYouTube: async () => (globalThis as any).__searchMock.youtubeResult,
+  searchYouTube: async () => (globalThis as any).__searchMock.youtubeResults,
 }));
 
 mock.module("../db", () => ({
@@ -138,7 +138,7 @@ describe("POST /api/search", () => {
     expect(body.data.song.artist).toBe("Genius Artist");
   });
 
-  test("includes YouTube videoId when available", async () => {
+  test("includes YouTube results when available", async () => {
     (globalThis as any).__searchMock.lrclibResults = [
       {
         id: 1,
@@ -147,11 +147,15 @@ describe("POST /api/search", () => {
         syncedLyrics: "[00:01.00] Line one",
       },
     ];
-    (globalThis as any).__searchMock.youtubeResult = { videoId: "abc123", title: "Test Video" };
+    (globalThis as any).__searchMock.youtubeResults = [
+      { videoId: "abc123", title: "Test Video", channelTitle: "Test Channel" },
+      { videoId: "def456", title: "Test Video 2", channelTitle: "Test Channel 2" },
+    ];
 
     const res = await post({ query: "test", sourceLang: "en" });
     const body = await res.json();
-    expect(body.data.videoId).toBe("abc123");
+    expect(body.data.youtubeResults).toHaveLength(2);
+    expect(body.data.youtubeResults[0].videoId).toBe("abc123");
   });
 
   test("falls back to query as title when no sources match", async () => {

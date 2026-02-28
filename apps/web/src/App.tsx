@@ -17,7 +17,7 @@ const DEFAULT_SETTINGS: Settings = {
   sourceLang: "ru",
   targetLang: "en",
   provider: "local",
-  localModel: "translategemma-12b-4bit",
+  localModel: "translategemma-4b-4bit",
   viewMode: "side-by-side",
   showTransliteration: false,
 };
@@ -66,10 +66,11 @@ export default function App() {
   };
 
   // ─── Song selection ──────────────────────────────────────
-  const handleSelectSong = async (song: Song, lyrics: LyricLine[], _videoId?: string) => {
+  const handleSelectSong = async (song: Song, lyrics: LyricLine[], videoId?: string) => {
     setSearchResults(null);
     setSearchError(null);
-    await songView.selectSong(song, lyrics);
+    const songWithVideo = videoId ? { ...song, youtubeId: videoId } : song;
+    await songView.selectSong(songWithVideo, lyrics);
   };
 
   // ─── Provider change ────────────────────────────────────
@@ -95,7 +96,11 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <Header onSearch={handleSearch} isSearching={searchLoading} />
+      <Header onSearch={handleSearch} isSearching={searchLoading} onGoHome={() => {
+        songView.clearSong();
+        setSearchResults(null);
+        setSearchError(null);
+      }} />
       <main className="container mx-auto px-4 py-6">
         {error && (
           <div className="text-destructive text-sm mb-4">{error}</div>
@@ -108,7 +113,7 @@ export default function App() {
             <SearchResultCard
               song={searchResults.song}
               lyrics={searchResults.lyrics}
-              videoId={searchResults.videoId}
+              youtubeResults={searchResults.youtubeResults}
               onSelect={handleSelectSong}
             />
           </div>

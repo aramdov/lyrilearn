@@ -26,12 +26,12 @@ interface YouTubeApiResponse {
   }>;
 }
 
-/** Search YouTube for a music video. Returns top result. */
+/** Search YouTube for music videos. Returns up to 5 results. */
 export async function searchYouTube(
   query: string
-): Promise<YouTubeSearchResult | null> {
+): Promise<YouTubeSearchResult[]> {
   if (!YOUTUBE_API_KEY) {
-    return null; // gracefully return null if no API key
+    return [];
   }
 
   const params = new URLSearchParams({
@@ -39,7 +39,7 @@ export async function searchYouTube(
     q: query,
     type: "video",
     videoCategoryId: "10", // Music category
-    maxResults: "1",
+    maxResults: "5",
     key: YOUTUBE_API_KEY,
   });
 
@@ -51,13 +51,12 @@ export async function searchYouTube(
 
   const data: YouTubeApiResponse = await res.json();
 
-  if (!data.items?.length) return null;
+  if (!data.items?.length) return [];
 
-  const item = data.items[0];
-  return {
+  return data.items.map((item) => ({
     videoId: item.id.videoId,
     title: item.snippet.title,
     channelTitle: item.snippet.channelTitle,
     thumbnailUrl: item.snippet.thumbnails?.medium?.url,
-  };
+  }));
 }

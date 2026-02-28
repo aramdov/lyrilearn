@@ -73,7 +73,7 @@ describe("api", () => {
 
   describe("search()", () => {
     test("sends a POST to /api/search with the correct JSON body", async () => {
-      const responsePayload: api.SearchResponse = { song: SONG, lyrics: LYRICS, videoId: "hTWKbfoikeg" };
+      const responsePayload: api.SearchResponse = { song: SONG, lyrics: LYRICS, youtubeResults: [{ videoId: "hTWKbfoikeg", title: "Test", channelTitle: "Ch" }] };
       globalThis.fetch = mockFetchResponse(responsePayload);
 
       await api.search("Nirvana teen spirit", "en");
@@ -86,7 +86,7 @@ describe("api", () => {
     });
 
     test("returns the unwrapped data payload", async () => {
-      const responsePayload: api.SearchResponse = { song: SONG, lyrics: LYRICS, videoId: "hTWKbfoikeg" };
+      const responsePayload: api.SearchResponse = { song: SONG, lyrics: LYRICS, youtubeResults: [{ videoId: "hTWKbfoikeg", title: "Test", channelTitle: "Ch" }] };
       globalThis.fetch = mockFetchResponse(responsePayload);
 
       const result = await api.search("Nirvana teen spirit", "en");
