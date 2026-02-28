@@ -256,6 +256,40 @@ describe("LyricsDisplay", () => {
     });
   });
 
+  // ── Karaoke view ───────────────────────────────────────────────────────────
+
+  describe("viewMode='karaoke'", () => {
+    const LYRICS = [
+      makeLine(1, "Follow the light"),
+      makeLine(2, "Into the night"),
+    ];
+
+    test("renders original text for every line", () => {
+      const { q } = renderDisplay({ lyrics: LYRICS, viewMode: "karaoke" });
+      expect(q.getByText("Follow the light")).toBeDefined();
+      expect(q.getByText("Into the night")).toBeDefined();
+    });
+
+    test("renders translated text when a translation exists", () => {
+      const translations = new Map([
+        [1, makeTranslation(1, "Sigue la luz")],
+        [2, makeTranslation(2, "Hacia la noche")],
+      ]);
+      const { q } = renderDisplay({ lyrics: LYRICS, translations, viewMode: "karaoke" });
+      expect(q.getByText("Sigue la luz")).toBeDefined();
+      expect(q.getByText("Hacia la noche")).toBeDefined();
+    });
+
+    test("shows 'Translating...' for lines in translatingIds", () => {
+      const { q } = renderDisplay({
+        lyrics: LYRICS,
+        translatingIds: new Set([1]),
+        viewMode: "karaoke",
+      });
+      expect(q.getByText("Translating...")).toBeDefined();
+    });
+  });
+
   // ── View mode switching ──────────────────────────────────────────────────────
 
   describe("view mode switching", () => {
@@ -312,6 +346,15 @@ describe("LyricsDisplay", () => {
       expect(q.getByText("Открой глаза")).toBeDefined();
       // Original text must still be present.
       expect(q.getByText("Open your eyes")).toBeDefined();
+    });
+
+    test("renders translation text in karaoke mode", () => {
+      const { q } = renderDisplay({
+        lyrics: LYRICS,
+        translations: TRANSLATIONS,
+        viewMode: "karaoke",
+      });
+      expect(q.getByText("Открой глаза")).toBeDefined();
     });
 
     test("re-renders correctly when viewMode changes from interleaved to side-by-side", () => {
