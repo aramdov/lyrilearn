@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Header } from "@/components/Header";
 import { SearchResultCard } from "@/components/SearchResultCard";
 import { YouTubePlayer } from "@/components/YouTubePlayer";
@@ -9,6 +9,9 @@ import type { ProviderStatus, SearchResponse } from "@/lib/api";
 import type { Song, LyricLine, Provider, LocalModel } from "@lyrilearn/shared";
 import { useSongView } from "@/hooks/useSongView";
 import type { Settings, ViewMode } from "@/hooks/useSongView";
+import { useKaraokeSync } from "@/hooks/useKaraokeSync";
+import type { YouTubePlayerHandle } from "@/components/YouTubePlayer";
+import { transliterate } from "@/lib/transliterate";
 
 const DEFAULT_SETTINGS: Settings = {
   sourceLang: "ru",
@@ -27,8 +30,18 @@ export default function App() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
 
+  // ─── Refs ───────────────────────────────────────────────
+  const playerRef = useRef<YouTubePlayerHandle>(null);
+
   // ─── Song view hook ──────────────────────────────────────
   const songView = useSongView(settings);
+
+  // ─── Karaoke sync ──────────────────────────────────────
+  const karaoke = useKaraokeSync(
+    playerRef,
+    songView.lyrics,
+    settings.viewMode === "karaoke"
+  );
 
   // ─── Load provider config on mount ───────────────────────
   useEffect(() => {
@@ -120,7 +133,7 @@ export default function App() {
             </div>
 
             {/* YouTube player */}
-            <YouTubePlayer videoId={songView.currentSong.youtubeId} />
+            <YouTubePlayer ref={playerRef} videoId={songView.currentSong.youtubeId} />
 
             {/* Toolbar */}
             <LyricsToolbar
@@ -140,6 +153,11 @@ export default function App() {
               onViewModeChange={(mode: ViewMode) =>
                 setSettings((s) => ({ ...s, viewMode: mode }))
               }
+              hasSyncedLyrics={karaoke.hasSyncedLyrics}
+              showTransliteration={settings.showTransliteration}
+              onTransliterationChange={(show) =>
+                setSettings((s) => ({ ...s, showTransliteration: show }))
+              }
             />
 
             {/* Lyrics */}
@@ -153,6 +171,9 @@ export default function App() {
                 translations={songView.translations}
                 viewMode={settings.viewMode}
                 translatingIds={songView.translating}
+                activeLineId={karaoke.activeLineId}
+                showTransliteration={settings.showTransliteration}
+                transliterate={transliterate}
               />
             )}
           </div>
