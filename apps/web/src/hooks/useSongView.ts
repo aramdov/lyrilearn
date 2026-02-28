@@ -3,7 +3,7 @@ import type { Song, LyricLine, Provider, LocalModel } from "@lyrilearn/shared";
 import * as api from "@/lib/api";
 import type { LyricsTranslation } from "@/lib/api";
 
-export type ViewMode = "side-by-side" | "interleaved";
+export type ViewMode = "side-by-side" | "interleaved" | "karaoke";
 
 export interface Settings {
   sourceLang: string;
@@ -11,6 +11,7 @@ export interface Settings {
   provider: Provider;
   localModel: LocalModel;
   viewMode: ViewMode;
+  showTransliteration: boolean;
 }
 
 export function useSongView(settings: Settings) {

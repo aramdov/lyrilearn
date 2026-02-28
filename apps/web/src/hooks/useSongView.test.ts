@@ -26,6 +26,7 @@ const DEFAULT_SETTINGS: Settings = {
   provider: "local",
   localModel: "translategemma-12b-4bit",
   viewMode: "side-by-side",
+  showTransliteration: false,
 };
 
 // ─── Mock helpers ───────────────────────────────────────────
