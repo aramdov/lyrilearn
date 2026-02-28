@@ -1,12 +1,16 @@
 import type { LyricLine } from "@lyrilearn/shared";
 import type { LyricsTranslation } from "@/lib/api";
 import type { ViewMode } from "@/hooks/useSongView";
+import { KaraokeView } from "./KaraokeView";
 
 interface LyricsDisplayProps {
   lyrics: LyricLine[];
   translations: Map<number, LyricsTranslation>;
   viewMode: ViewMode;
   translatingIds: Set<number>;
+  activeLineId?: number | null;
+  showTransliteration?: boolean;
+  transliterate?: (text: string) => string;
 }
 
 export function LyricsDisplay({
@@ -14,12 +18,28 @@ export function LyricsDisplay({
   translations,
   viewMode,
   translatingIds,
+  activeLineId = null,
+  showTransliteration = false,
+  transliterate,
 }: LyricsDisplayProps) {
   if (lyrics.length === 0) {
     return (
       <div className="text-center text-muted-foreground py-10">
         No lyrics available for this song
       </div>
+    );
+  }
+
+  if (viewMode === "karaoke") {
+    return (
+      <KaraokeView
+        lyrics={lyrics}
+        translations={translations}
+        translatingIds={translatingIds}
+        activeLineId={activeLineId}
+        showTransliteration={showTransliteration}
+        transliterate={transliterate}
+      />
     );
   }
 
