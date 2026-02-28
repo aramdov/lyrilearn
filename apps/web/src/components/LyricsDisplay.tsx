@@ -44,9 +44,9 @@ export function LyricsDisplay({
   }
 
   if (viewMode === "side-by-side") {
-    return <SideBySideView lyrics={lyrics} translations={translations} translatingIds={translatingIds} />;
+    return <SideBySideView lyrics={lyrics} translations={translations} translatingIds={translatingIds} showTransliteration={showTransliteration} transliterate={transliterate} />;
   }
-  return <InterleavedView lyrics={lyrics} translations={translations} translatingIds={translatingIds} />;
+  return <InterleavedView lyrics={lyrics} translations={translations} translatingIds={translatingIds} showTransliteration={showTransliteration} transliterate={transliterate} />;
 }
 
 // ─── Side by Side ───────────────────────────────────────────
@@ -55,6 +55,8 @@ function SideBySideView({
   lyrics,
   translations,
   translatingIds,
+  showTransliteration,
+  transliterate,
 }: Omit<LyricsDisplayProps, "viewMode">) {
   return (
     <div className="grid grid-cols-2 gap-x-6 gap-y-1 py-4">
@@ -68,6 +70,12 @@ function SideBySideView({
             <div className="py-1.5 border-b border-border/50">
               <span className="text-sm">{line.text || "\u00A0"}</span>
             </div>
+            {/* Transliteration */}
+            {showTransliteration && transliterate && line.text.trim() && (
+              <p className="text-xs text-muted-foreground/70 italic col-span-2 -mt-1 mb-1">
+                {transliterate(line.text)}
+              </p>
+            )}
             {/* Translation */}
             <div className="py-1.5 border-b border-border/50">
               {isTranslating ? (
@@ -99,6 +107,8 @@ function InterleavedView({
   lyrics,
   translations,
   translatingIds,
+  showTransliteration,
+  transliterate,
 }: Omit<LyricsDisplayProps, "viewMode">) {
   return (
     <div className="space-y-3 py-4">
@@ -109,6 +119,11 @@ function InterleavedView({
         return (
           <div key={line.id}>
             <p className="text-sm">{line.text || "\u00A0"}</p>
+            {showTransliteration && transliterate && line.text.trim() && (
+              <p className="text-xs text-muted-foreground/70 italic mt-0.5">
+                {transliterate(line.text)}
+              </p>
+            )}
             {line.text.trim() && (
               <p className="text-xs text-muted-foreground mt-0.5">
                 {isTranslating
