@@ -9,6 +9,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Toggle } from "@/components/ui/toggle";
+import { isNonLatinScript } from "@/lib/transliterate";
 
 interface LyricsToolbarProps {
   sourceLang: string;
@@ -21,6 +23,9 @@ interface LyricsToolbarProps {
   onTargetLangChange: (lang: string) => void;
   onProviderChange: (provider: Provider, localModel?: LocalModel) => void;
   onViewModeChange: (mode: ViewMode) => void;
+  hasSyncedLyrics: boolean;
+  showTransliteration: boolean;
+  onTransliterationChange: (show: boolean) => void;
 }
 
 const LANGUAGES = [
@@ -49,6 +54,9 @@ export function LyricsToolbar({
   onTargetLangChange,
   onProviderChange,
   onViewModeChange,
+  hasSyncedLyrics,
+  showTransliteration,
+  onTransliterationChange,
 }: LyricsToolbarProps) {
   const providerValue =
     provider === "cloud" ? "cloud" : `local-${localModel}`;
@@ -138,7 +146,23 @@ export function LyricsToolbar({
         <ToggleGroupItem value="interleaved" className="text-xs px-3">
           Interleaved
         </ToggleGroupItem>
+        {hasSyncedLyrics && (
+          <ToggleGroupItem value="karaoke" className="text-xs px-3">
+            Karaoke
+          </ToggleGroupItem>
+        )}
       </ToggleGroup>
+
+      {isNonLatinScript(sourceLang) && (
+        <Toggle
+          pressed={showTransliteration}
+          onPressedChange={onTransliterationChange}
+          className="text-xs px-3 border"
+          aria-label="Toggle transliteration"
+        >
+          Aa
+        </Toggle>
+      )}
     </div>
   );
 }
