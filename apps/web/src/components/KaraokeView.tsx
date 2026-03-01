@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from "react";
 import type { LyricLine } from "@lyrilearn/shared";
 import type { LyricsTranslation } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { WordSelector } from "./WordSelector";
 
 interface KaraokeViewProps {
   lyrics: LyricLine[];
@@ -10,6 +11,10 @@ interface KaraokeViewProps {
   activeLineId: number | null;
   showTransliteration: boolean;
   transliterate?: (text: string) => string;
+  flashcardMode?: boolean;
+  savedCardIds?: Set<string>;
+  onSaveWord?: (lineId: number, word: string, startIdx: number, endIdx: number) => void;
+  onSaveLine?: (lineId: number) => void;
 }
 
 export function KaraokeView({
@@ -19,6 +24,10 @@ export function KaraokeView({
   activeLineId,
   showTransliteration,
   transliterate,
+  flashcardMode = false,
+  savedCardIds,
+  onSaveWord,
+  onSaveLine,
 }: KaraokeViewProps) {
   const lineRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
@@ -55,9 +64,21 @@ export function KaraokeView({
                 : "border-l-2 border-transparent"
             )}
           >
-            <p className={cn("text-sm", isActive && "text-base font-medium")}>
-              {line.text || "\u00A0"}
-            </p>
+            {flashcardMode ? (
+              <WordSelector
+                text={line.text}
+                lineId={line.id}
+                translation={translation?.translatedText}
+                savedWordIds={savedCardIds ?? new Set()}
+                onSaveWord={(word, start, end) => onSaveWord?.(line.id, word, start, end)}
+                onSaveLine={() => onSaveLine?.(line.id)}
+                className={cn("text-sm", isActive && "text-base font-medium")}
+              />
+            ) : (
+              <p className={cn("text-sm", isActive && "text-base font-medium")}>
+                {line.text || "\u00A0"}
+              </p>
+            )}
 
             {showTransliteration && transliterate && line.text.trim() && (
               <p className="text-xs text-muted-foreground/70 italic mt-0.5">

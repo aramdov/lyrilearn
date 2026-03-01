@@ -26,6 +26,8 @@ interface LyricsToolbarProps {
   hasSyncedLyrics: boolean;
   showTransliteration: boolean;
   onTransliterationChange: (show: boolean) => void;
+  flashcardMode?: boolean;
+  onFlashcardModeChange?: (active: boolean) => void;
 }
 
 const LANGUAGES = [
@@ -57,6 +59,8 @@ export function LyricsToolbar({
   hasSyncedLyrics,
   showTransliteration,
   onTransliterationChange,
+  flashcardMode = false,
+  onFlashcardModeChange,
 }: LyricsToolbarProps) {
   const providerValue =
     provider === "cloud" ? "cloud" : `local-${localModel}`;
@@ -65,10 +69,10 @@ export function LyricsToolbar({
     if (!value) return;
     if (value === "cloud") {
       onProviderChange("cloud");
-    } else if (value === "local-translategemma-12b-4bit") {
-      onProviderChange("local", "translategemma-12b-4bit");
     } else if (value === "local-translategemma-4b-4bit") {
       onProviderChange("local", "translategemma-4b-4bit");
+    } else if (value === "local-translategemma-27b-4bit") {
+      onProviderChange("local", "translategemma-27b-4bit");
     }
   };
 
@@ -111,18 +115,18 @@ export function LyricsToolbar({
         className="border rounded-md"
       >
         <ToggleGroupItem
-          value="local-translategemma-12b-4bit"
-          disabled={config ? !config.models["translategemma-12b-4bit"] : false}
-          className="text-xs px-3"
-        >
-          Local 12B
-        </ToggleGroupItem>
-        <ToggleGroupItem
           value="local-translategemma-4b-4bit"
           disabled={config ? !config.models["translategemma-4b-4bit"] : false}
           className="text-xs px-3"
         >
-          Local 4B
+          Local 4B (4-bit)
+        </ToggleGroupItem>
+        <ToggleGroupItem
+          value="local-translategemma-27b-4bit"
+          disabled={config ? !config.models["translategemma-27b-4bit"] : false}
+          className="text-xs px-3"
+        >
+          Local 27B (4-bit)
         </ToggleGroupItem>
         <ToggleGroupItem
           value="cloud"
@@ -163,6 +167,15 @@ export function LyricsToolbar({
           Aa
         </Toggle>
       )}
+
+      <Toggle
+        pressed={flashcardMode}
+        onPressedChange={onFlashcardModeChange}
+        className="text-xs px-3 border"
+        aria-label="Toggle flashcard selection mode"
+      >
+        + Cards
+      </Toggle>
     </div>
   );
 }

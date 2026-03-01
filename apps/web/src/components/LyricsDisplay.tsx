@@ -2,6 +2,7 @@ import type { LyricLine } from "@lyrilearn/shared";
 import type { LyricsTranslation } from "@/lib/api";
 import type { ViewMode } from "@/hooks/useSongView";
 import { KaraokeView } from "./KaraokeView";
+import { WordSelector } from "./WordSelector";
 
 interface LyricsDisplayProps {
   lyrics: LyricLine[];
@@ -11,6 +12,11 @@ interface LyricsDisplayProps {
   activeLineId?: number | null;
   showTransliteration?: boolean;
   transliterate?: (text: string) => string;
+  translationError?: string | null;
+  flashcardMode?: boolean;
+  savedCardIds?: Set<string>;
+  onSaveWord?: (lineId: number, word: string, startIdx: number, endIdx: number) => void;
+  onSaveLine?: (lineId: number) => void;
 }
 
 export function LyricsDisplay({
@@ -21,6 +27,11 @@ export function LyricsDisplay({
   activeLineId = null,
   showTransliteration = false,
   transliterate,
+  translationError = null,
+  flashcardMode = false,
+  savedCardIds,
+  onSaveWord,
+  onSaveLine,
 }: LyricsDisplayProps) {
   if (lyrics.length === 0) {
     return (
@@ -39,14 +50,18 @@ export function LyricsDisplay({
         activeLineId={activeLineId}
         showTransliteration={showTransliteration}
         transliterate={transliterate}
+        flashcardMode={flashcardMode}
+        savedCardIds={savedCardIds}
+        onSaveWord={onSaveWord}
+        onSaveLine={onSaveLine}
       />
     );
   }
 
   if (viewMode === "side-by-side") {
-    return <SideBySideView lyrics={lyrics} translations={translations} translatingIds={translatingIds} showTransliteration={showTransliteration} transliterate={transliterate} />;
+    return <SideBySideView lyrics={lyrics} translations={translations} translatingIds={translatingIds} showTransliteration={showTransliteration} transliterate={transliterate} translationError={translationError} flashcardMode={flashcardMode} savedCardIds={savedCardIds} onSaveWord={onSaveWord} onSaveLine={onSaveLine} />;
   }
-  return <InterleavedView lyrics={lyrics} translations={translations} translatingIds={translatingIds} showTransliteration={showTransliteration} transliterate={transliterate} />;
+  return <InterleavedView lyrics={lyrics} translations={translations} translatingIds={translatingIds} showTransliteration={showTransliteration} transliterate={transliterate} translationError={translationError} flashcardMode={flashcardMode} savedCardIds={savedCardIds} onSaveWord={onSaveWord} onSaveLine={onSaveLine} />;
 }
 
 // ─── Side by Side ───────────────────────────────────────────
@@ -57,6 +72,11 @@ function SideBySideView({
   translatingIds,
   showTransliteration,
   transliterate,
+  translationError,
+  flashcardMode,
+  savedCardIds,
+  onSaveWord,
+  onSaveLine,
 }: Omit<LyricsDisplayProps, "viewMode">) {
   return (
     <div className="grid grid-cols-2 gap-x-6 gap-y-1 py-4">
@@ -68,7 +88,19 @@ function SideBySideView({
           <div key={line.id} className="contents">
             {/* Original */}
             <div className="py-1.5 border-b border-border/50">
-              <span className="text-sm">{line.text || "\u00A0"}</span>
+              {flashcardMode ? (
+                <WordSelector
+                  text={line.text}
+                  lineId={line.id}
+                  translation={translation?.translatedText}
+                  savedWordIds={savedCardIds ?? new Set()}
+                  onSaveWord={(word, start, end) => onSaveWord?.(line.id, word, start, end)}
+                  onSaveLine={() => onSaveLine?.(line.id)}
+                  className="text-sm"
+                />
+              ) : (
+                <span className="text-sm">{line.text || "\u00A0"}</span>
+              )}
             </div>
             {/* Transliteration */}
             {showTransliteration && transliterate && line.text.trim() && (
@@ -88,7 +120,7 @@ function SideBySideView({
                 </span>
               ) : line.text.trim() ? (
                 <span className="text-sm text-muted-foreground/50">
-                  Translation unavailable
+                  {translationError ? "Translation failed" : "Translation unavailable"}
                 </span>
               ) : (
                 <span>{"\u00A0"}</span>
@@ -109,6 +141,11 @@ function InterleavedView({
   translatingIds,
   showTransliteration,
   transliterate,
+  translationError,
+  flashcardMode,
+  savedCardIds,
+  onSaveWord,
+  onSaveLine,
 }: Omit<LyricsDisplayProps, "viewMode">) {
   return (
     <div className="space-y-3 py-4">
@@ -118,7 +155,19 @@ function InterleavedView({
 
         return (
           <div key={line.id}>
-            <p className="text-sm">{line.text || "\u00A0"}</p>
+            {flashcardMode ? (
+              <WordSelector
+                text={line.text}
+                lineId={line.id}
+                translation={translations.get(line.id)?.translatedText}
+                savedWordIds={savedCardIds ?? new Set()}
+                onSaveWord={(word, start, end) => onSaveWord?.(line.id, word, start, end)}
+                onSaveLine={() => onSaveLine?.(line.id)}
+                className="text-sm"
+              />
+            ) : (
+              <p className="text-sm">{line.text || "\u00A0"}</p>
+            )}
             {showTransliteration && transliterate && line.text.trim() && (
               <p className="text-xs text-muted-foreground/70 italic mt-0.5">
                 {transliterate(line.text)}
@@ -130,7 +179,9 @@ function InterleavedView({
                   ? "Translating..."
                   : translation
                     ? translation.translatedText
-                    : "Translation unavailable"}
+                    : translationError
+                      ? "Translation failed"
+                      : "Translation unavailable"}
               </p>
             )}
           </div>
