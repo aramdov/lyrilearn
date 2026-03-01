@@ -4,14 +4,16 @@ import { SearchResultCard } from "@/components/SearchResultCard";
 import { YouTubePlayer } from "@/components/YouTubePlayer";
 import { LyricsToolbar } from "@/components/LyricsToolbar";
 import { LyricsDisplay } from "@/components/LyricsDisplay";
+import { FlashcardDeck } from "@/components/FlashcardDeck";
 import * as api from "@/lib/api";
-import type { ProviderStatus, SearchResponse } from "@/lib/api";
-import type { Song, LyricLine, Provider, LocalModel } from "@lyrilearn/shared";
+import type { ProviderStatus, SearchResponse, LyricsSource } from "@/lib/api";
+import type { Song, LyricLine, Provider, LocalModel, FlashcardEntry } from "@lyrilearn/shared";
 import { useSongView } from "@/hooks/useSongView";
 import type { Settings, ViewMode } from "@/hooks/useSongView";
 import { useKaraokeSync } from "@/hooks/useKaraokeSync";
 import type { YouTubePlayerHandle } from "@/components/YouTubePlayer";
 import { transliterate } from "@/lib/transliterate";
+import { saveCard, makeCardId, getCardCount, getSavedCardIds } from "@/lib/db";
 
 const DEFAULT_SETTINGS: Settings = {
   sourceLang: "ru",
@@ -29,6 +31,14 @@ export default function App() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [lyricsSource, setLyricsSource] = useState<LyricsSource | null>(null);
+
+  // ─── Flashcard state ───────────────────────────────────
+  const [appView, setAppView] = useState<"main" | "flashcards">("main");
+  const [flashcardMode, setFlashcardMode] = useState(false);
+  const [flashcardCount, setFlashcardCount] = useState(0);
+  const [savedCardIds, setSavedCardIds] = useState<Set<string>>(new Set());
+  const [savedToast, setSavedToast] = useState<string | null>(null);
 
   // ─── Refs ───────────────────────────────────────────────
   const playerRef = useRef<YouTubePlayerHandle>(null);
@@ -43,10 +53,20 @@ export default function App() {
     settings.viewMode === "karaoke"
   );
 
-  // ─── Load provider config on mount ───────────────────────
+  // ─── Load provider config + flashcard count on mount ─────
   useEffect(() => {
     api.getConfig().then(setConfig).catch(() => {});
+    getCardCount().then(setFlashcardCount).catch(() => {});
   }, []);
+
+  // ─── Load saved card IDs when song changes ─────────────
+  useEffect(() => {
+    if (songView.currentSong) {
+      getSavedCardIds(songView.currentSong.id).then(setSavedCardIds);
+    } else {
+      setSavedCardIds(new Set());
+    }
+  }, [songView.currentSong]);
 
   // ─── Search handler ──────────────────────────────────────
   const handleSearch = async (query: string) => {
@@ -67,6 +87,7 @@ export default function App() {
 
   // ─── Song selection ──────────────────────────────────────
   const handleSelectSong = async (song: Song, lyrics: LyricLine[], videoId?: string) => {
+    setLyricsSource(searchResults?.lyricsSource ?? null);
     setSearchResults(null);
     setSearchError(null);
     const songWithVideo = videoId ? { ...song, youtubeId: videoId } : song;
@@ -91,36 +112,130 @@ export default function App() {
     songView.refetchTranslations(newSettings);
   };
 
+  // ─── Save word flashcard ────────────────────────────────
+  const handleSaveWord = async (
+    lineId: number,
+    word: string,
+    _startIdx: number,
+    _endIdx: number
+  ) => {
+    if (!songView.currentSong) return;
+    const song = songView.currentSong;
+    const translation = songView.translations.get(lineId);
+    const line = songView.lyrics.find((l) => l.id === lineId);
+
+    const card: FlashcardEntry = {
+      id: makeCardId(song.id, settings.sourceLang, "word", word),
+      songId: song.id,
+      songTitle: song.title,
+      artist: song.artist,
+      type: "word",
+      source: word,
+      target: "",
+      sourceLang: settings.sourceLang,
+      targetLang: settings.targetLang,
+      provider: settings.provider,
+      context: line?.text,
+      createdAt: Date.now(),
+      reviewCount: 0,
+    };
+
+    // Try single-word translation
+    try {
+      const result = await api.translate(
+        word,
+        settings.sourceLang,
+        settings.targetLang,
+        settings.provider,
+        undefined,
+        settings.provider === "local" ? settings.localModel : undefined
+      );
+      card.target = result.translatedText;
+    } catch {
+      card.target = translation?.translatedText || "";
+    }
+
+    await saveCard(card);
+    setSavedCardIds((prev) => new Set(prev).add(card.id));
+    setFlashcardCount((c) => c + 1);
+    setSavedToast(`Saved "${word}"`);
+    setTimeout(() => setSavedToast(null), 2000);
+  };
+
+  // ─── Save line flashcard ───────────────────────────────
+  const handleSaveLine = async (lineId: number) => {
+    if (!songView.currentSong) return;
+    const song = songView.currentSong;
+    const line = songView.lyrics.find((l) => l.id === lineId);
+    const translation = songView.translations.get(lineId);
+    if (!line) return;
+
+    const card: FlashcardEntry = {
+      id: makeCardId(song.id, settings.sourceLang, "line", line.text),
+      songId: song.id,
+      songTitle: song.title,
+      artist: song.artist,
+      type: "line",
+      source: line.text,
+      target: translation?.translatedText || "",
+      sourceLang: settings.sourceLang,
+      targetLang: settings.targetLang,
+      provider: settings.provider,
+      createdAt: Date.now(),
+      reviewCount: 0,
+    };
+
+    await saveCard(card);
+    setSavedCardIds((prev) => new Set(prev).add(card.id));
+    setFlashcardCount((c) => c + 1);
+    setSavedToast("Saved line");
+    setTimeout(() => setSavedToast(null), 2000);
+  };
+
   // ─── Render ──────────────────────────────────────────────
   const error = searchError || songView.error;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <Header onSearch={handleSearch} isSearching={searchLoading} onGoHome={() => {
-        songView.clearSong();
-        setSearchResults(null);
-        setSearchError(null);
-      }} />
+      <Header
+        onSearch={handleSearch}
+        isSearching={searchLoading}
+        onGoHome={() => {
+          songView.clearSong();
+          setSearchResults(null);
+          setSearchError(null);
+          setLyricsSource(null);
+          setFlashcardMode(false);
+          setAppView("main");
+        }}
+        onFlashcards={() => setAppView("flashcards")}
+        flashcardCount={flashcardCount}
+      />
       <main className="container mx-auto px-4 py-6">
-        {error && (
+        {/* Flashcard deck view */}
+        {appView === "flashcards" && (
+          <FlashcardDeck onBack={() => setAppView("main")} />
+        )}
+
+        {appView === "main" && error && (
           <div className="text-destructive text-sm mb-4">{error}</div>
         )}
 
         {/* SearchView: shown when we have results but no selected song */}
-        {searchResults && !songView.currentSong && (
-          <div className="max-w-2xl mx-auto space-y-3">
-            <h2 className="text-lg font-medium mb-2">Search Results</h2>
+        {appView === "main" && searchResults && !songView.currentSong && (
+          <div className="max-w-4xl mx-auto space-y-3">
             <SearchResultCard
               song={searchResults.song}
               lyrics={searchResults.lyrics}
               youtubeResults={searchResults.youtubeResults}
+              lyricsSource={searchResults.lyricsSource}
               onSelect={handleSelectSong}
             />
           </div>
         )}
 
         {/* SongView: shown when a song is selected */}
-        {songView.currentSong && (
+        {appView === "main" && songView.currentSong && (
           <div className="space-y-4">
             {/* Song header */}
             <div className="flex items-center gap-3">
@@ -134,11 +249,32 @@ export default function App() {
               <div>
                 <h2 className="font-bold text-lg">{songView.currentSong.title}</h2>
                 <p className="text-sm text-muted-foreground">{songView.currentSong.artist}</p>
+                {lyricsSource && (
+                  <p className="text-xs text-muted-foreground/60">
+                    Lyrics: {lyricsSource === "lrclib-synced"
+                      ? "LRCLIB (synced)"
+                      : lyricsSource === "lrclib-plain"
+                        ? "LRCLIB (plain)"
+                        : "No lyrics available"}
+                  </p>
+                )}
               </div>
             </div>
 
             {/* YouTube player */}
             <YouTubePlayer ref={playerRef} videoId={songView.currentSong.youtubeId} />
+
+            {/* Translation error banner */}
+            {songView.translationError && (
+              <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm">
+                <p className="font-medium text-amber-600 dark:text-amber-400">
+                  Translation failed for {songView.translationFailCount} line{songView.translationFailCount !== 1 ? "s" : ""}: {songView.translationError}
+                </p>
+                <p className="text-amber-600/70 dark:text-amber-400/70 text-xs mt-1">
+                  Start the MLX server or set GOOGLE_CLOUD_API_KEY
+                </p>
+              </div>
+            )}
 
             {/* Toolbar */}
             <LyricsToolbar
@@ -163,7 +299,22 @@ export default function App() {
               onTransliterationChange={(show) =>
                 setSettings((s) => ({ ...s, showTransliteration: show }))
               }
+              flashcardMode={flashcardMode}
+              onFlashcardModeChange={setFlashcardMode}
             />
+
+            {/* Flashcard mode banner */}
+            {flashcardMode && (
+              <div className="rounded-md border border-primary/30 bg-primary/5 px-4 py-2 text-xs text-primary">
+                Flashcard mode — tap words to save, tap + to save a whole line.
+                <button
+                  onClick={() => setFlashcardMode(false)}
+                  className="ml-2 underline hover:no-underline"
+                >
+                  Exit
+                </button>
+              </div>
+            )}
 
             {/* Lyrics */}
             {songView.lyricsLoading ? (
@@ -179,18 +330,30 @@ export default function App() {
                 activeLineId={karaoke.activeLineId}
                 showTransliteration={settings.showTransliteration}
                 transliterate={transliterate}
+                translationError={songView.translationError}
+                flashcardMode={flashcardMode}
+                savedCardIds={savedCardIds}
+                onSaveWord={handleSaveWord}
+                onSaveLine={handleSaveLine}
               />
             )}
           </div>
         )}
 
         {/* Landing state */}
-        {!searchResults && !songView.currentSong && !searchLoading && (
+        {appView === "main" && !searchResults && !songView.currentSong && !searchLoading && (
           <div className="text-center text-muted-foreground mt-20">
             <p className="text-lg">Search for a song to get started</p>
           </div>
         )}
       </main>
+
+      {/* Save toast */}
+      {savedToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-md bg-foreground text-background px-4 py-2 text-sm shadow-lg">
+          {savedToast}
+        </div>
+      )}
     </div>
   );
 }
