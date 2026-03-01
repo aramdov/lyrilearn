@@ -4,7 +4,7 @@
 export type Provider = "local" | "cloud";
 
 /** The specific local model to use (selectable in the frontend toggle) */
-export type LocalModel = "translategemma-12b-4bit" | "translategemma-4b-4bit";
+export type LocalModel = "translategemma-4b-4bit" | "translategemma-27b-4bit";
 
 /** What the frontend sends: which engine + model to use */
 export interface TranslationConfig {
@@ -112,4 +112,15 @@ export interface FlashcardEntry {
   createdAt: number;
   reviewCount: number;
   lastReviewed?: number;
+}
+
+export interface ReviewSession {
+  id: string;
+  date: number;
+  deckType: "all" | "song";
+  songId?: number;
+  songTitle?: string;
+  cardCount: number;
+  knewIt: number;
+  needPractice: number;
 }
