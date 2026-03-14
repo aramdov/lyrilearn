@@ -1,4 +1,4 @@
-import { describe, test, expect, mock, beforeEach, afterEach } from "bun:test";
+import { describe, test, expect, mock, beforeEach, afterEach, afterAll } from "bun:test";
 import { Hono } from "hono";
 import { Database } from "bun:sqlite";
 
@@ -49,7 +49,7 @@ function initTestDb() {
       provider TEXT NOT NULL DEFAULT 'local',
       translated_text TEXT NOT NULL,
       transliteration TEXT,
-      model_variant TEXT NOT NULL DEFAULT 'translategemma-12b-4bit',
+      model_variant TEXT NOT NULL DEFAULT 'translategemma-4b-4bit',
       latency_ms REAL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(lyrics_id, target_lang, provider, model_variant)
@@ -72,6 +72,10 @@ beforeEach(() => {
 
 afterEach(() => {
   testDb.close();
+});
+
+afterAll(() => {
+  mock.restore();
 });
 
 describe("GET /api/lyrics/:songId", () => {
@@ -131,7 +135,7 @@ describe("GET /api/lyrics/:songId", () => {
       INSERT INTO lyrics (id, song_id, line_number, text, start_time, end_time)
       VALUES (10, 1, 1, 'Привет', 0, 5);
       INSERT INTO translations (lyrics_id, target_lang, provider, translated_text, model_variant)
-      VALUES (10, 'en', 'local', 'Hi (machine)', 'translategemma-12b-4bit');
+      VALUES (10, 'en', 'local', 'Hi (machine)', 'translategemma-4b-4bit');
       INSERT INTO translation_overrides (lyrics_id, target_lang, translated_text)
       VALUES (10, 'en', 'Hello (corrected)');
     `);
@@ -152,7 +156,7 @@ describe("GET /api/lyrics/:songId", () => {
       INSERT INTO lyrics (id, song_id, line_number, text, start_time, end_time)
       VALUES (10, 1, 1, 'Мир', 0, 5);
       INSERT INTO translations (lyrics_id, target_lang, provider, translated_text, model_variant)
-      VALUES (10, 'en', 'local', 'World', 'translategemma-12b-4bit');
+      VALUES (10, 'en', 'local', 'World', 'translategemma-4b-4bit');
     `);
 
     const res = await req("/1?targetLang=en");
@@ -160,6 +164,6 @@ describe("GET /api/lyrics/:songId", () => {
 
     expect(data.translations[0].translatedText).toBe("World");
     expect(data.translations[0].provider).toBe("local");
-    expect(data.translations[0].modelVariant).toBe("translategemma-12b-4bit");
+    expect(data.translations[0].modelVariant).toBe("translategemma-4b-4bit");
   });
 });

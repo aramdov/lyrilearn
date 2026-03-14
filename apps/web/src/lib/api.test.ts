@@ -1,7 +1,11 @@
 import { describe, test, expect, mock, beforeEach } from "bun:test";
 import type { Song, LyricLine, TranslationResult } from "@lyrilearn/shared";
-
-import * as api from "./api";
+import type {
+  LyricsResponse,
+  LyricsTranslation,
+  ProviderStatus,
+  SearchResponse,
+} from "./api";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -44,15 +48,20 @@ const LYRICS: LyricLine[] = [
   { id: 2, songId: 1, lineNumber: 1, text: "Bring your friends" },
 ];
 
-const TRANSLATIONS: api.LyricsTranslation[] = [
-  { lyricsId: 1, translatedText: "Зарядите ружья", provider: "local", modelVariant: "translategemma-12b-4bit" },
-  { lyricsId: 2, translatedText: "Приведите своих друзей", provider: "local", modelVariant: "translategemma-12b-4bit" },
+type ApiModule = typeof import("./api");
+
+let api: ApiModule;
+let importVersion = 0;
+
+const TRANSLATIONS: LyricsTranslation[] = [
+  { lyricsId: 1, translatedText: "Зарядите ружья", provider: "local", modelVariant: "translategemma-4b-4bit" },
+  { lyricsId: 2, translatedText: "Приведите своих друзей", provider: "local", modelVariant: "translategemma-4b-4bit" },
 ];
 
 const TRANSLATION_RESULT: TranslationResult = {
   translatedText: "Зарядите ружья",
   provider: "local",
-  modelVariant: "translategemma-12b-4bit",
+  modelVariant: "translategemma-4b-4bit",
   latencyMs: 210,
 };
 
@@ -61,10 +70,12 @@ const TRANSLATION_RESULT: TranslationResult = {
 // ---------------------------------------------------------------------------
 
 describe("api", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     // Reset any previously installed fetch mock before each test so that
     // accumulated call history and return values don't bleed across tests.
+    mock.restore();
     globalThis.fetch = undefined as unknown as typeof fetch;
+    api = await import(`./api.ts?api-test=${importVersion++}`);
   });
 
   // -------------------------------------------------------------------------
@@ -73,7 +84,7 @@ describe("api", () => {
 
   describe("search()", () => {
     test("sends a POST to /api/search with the correct JSON body", async () => {
-      const responsePayload: api.SearchResponse = { song: SONG, lyrics: LYRICS, youtubeResults: [{ videoId: "hTWKbfoikeg", title: "Test", channelTitle: "Ch" }] };
+      const responsePayload: SearchResponse = { song: SONG, lyrics: LYRICS, youtubeResults: [{ videoId: "hTWKbfoikeg", title: "Test", channelTitle: "Ch" }], lyricsSource: "lrclib-synced" as const, metadataSource: "lrclib" as const };
       globalThis.fetch = mockFetchResponse(responsePayload);
 
       await api.search("Nirvana teen spirit", "en");
@@ -86,7 +97,7 @@ describe("api", () => {
     });
 
     test("returns the unwrapped data payload", async () => {
-      const responsePayload: api.SearchResponse = { song: SONG, lyrics: LYRICS, youtubeResults: [{ videoId: "hTWKbfoikeg", title: "Test", channelTitle: "Ch" }] };
+      const responsePayload: SearchResponse = { song: SONG, lyrics: LYRICS, youtubeResults: [{ videoId: "hTWKbfoikeg", title: "Test", channelTitle: "Ch" }], lyricsSource: "lrclib-synced" as const, metadataSource: "lrclib" as const };
       globalThis.fetch = mockFetchResponse(responsePayload);
 
       const result = await api.search("Nirvana teen spirit", "en");
@@ -101,10 +112,10 @@ describe("api", () => {
 
   describe("getLyrics()", () => {
     test("sends a GET request with correct query params including optional localModel", async () => {
-      const responsePayload: api.LyricsResponse = { song: SONG, lyrics: LYRICS, translations: TRANSLATIONS };
+      const responsePayload: LyricsResponse = { song: SONG, lyrics: LYRICS, translations: TRANSLATIONS };
       globalThis.fetch = mockFetchResponse(responsePayload);
 
-      await api.getLyrics(1, "ru", "local", "translategemma-12b-4bit");
+      await api.getLyrics(1, "ru", "local", "translategemma-4b-4bit");
 
       const [url, init] = (globalThis.fetch as ReturnType<typeof mock>).mock.calls[0] as [string, RequestInit];
       const parsed = new URL(url, "http://localhost");
@@ -112,13 +123,13 @@ describe("api", () => {
       expect(parsed.pathname).toBe("/api/lyrics/1");
       expect(parsed.searchParams.get("targetLang")).toBe("ru");
       expect(parsed.searchParams.get("provider")).toBe("local");
-      expect(parsed.searchParams.get("localModel")).toBe("translategemma-12b-4bit");
+      expect(parsed.searchParams.get("localModel")).toBe("translategemma-4b-4bit");
       // GET is the default when no method is specified
       expect(init?.method).toBeUndefined();
     });
 
     test("omits localModel query param when not provided", async () => {
-      const responsePayload: api.LyricsResponse = { song: SONG, lyrics: LYRICS, translations: TRANSLATIONS };
+      const responsePayload: LyricsResponse = { song: SONG, lyrics: LYRICS, translations: TRANSLATIONS };
       globalThis.fetch = mockFetchResponse(responsePayload);
 
       await api.getLyrics(1, "ru", "cloud");
@@ -130,7 +141,7 @@ describe("api", () => {
     });
 
     test("returns the unwrapped data payload", async () => {
-      const responsePayload: api.LyricsResponse = { song: SONG, lyrics: LYRICS, translations: TRANSLATIONS };
+      const responsePayload: LyricsResponse = { song: SONG, lyrics: LYRICS, translations: TRANSLATIONS };
       globalThis.fetch = mockFetchResponse(responsePayload);
 
       const result = await api.getLyrics(1, "ru", "local", "translategemma-4b-4bit");
@@ -153,7 +164,7 @@ describe("api", () => {
         "ru",
         "local",
         42,
-        "translategemma-12b-4bit"
+        "translategemma-4b-4bit"
       );
 
       const [url, init] = (globalThis.fetch as ReturnType<typeof mock>).mock.calls[0] as [string, RequestInit];
@@ -166,7 +177,7 @@ describe("api", () => {
         targetLang: "ru",
         provider: "local",
         lyricsId: 42,
-        localModel: "translategemma-12b-4bit",
+        localModel: "translategemma-4b-4bit",
       });
     });
 
@@ -185,10 +196,10 @@ describe("api", () => {
 
   describe("getConfig()", () => {
     test("sends a GET request to /api/config", async () => {
-      const configPayload: api.ProviderStatus = {
+      const configPayload: ProviderStatus = {
         local: true,
         cloud: false,
-        models: { "translategemma-12b-4bit": true, "translategemma-4b-4bit": false },
+        models: { "translategemma-4b-4bit": true, "translategemma-27b-4bit": false },
       };
       globalThis.fetch = mockFetchResponse(configPayload);
 
@@ -201,10 +212,10 @@ describe("api", () => {
     });
 
     test("returns the unwrapped provider status", async () => {
-      const configPayload: api.ProviderStatus = {
+      const configPayload: ProviderStatus = {
         local: true,
         cloud: false,
-        models: { "translategemma-12b-4bit": true },
+        models: { "translategemma-4b-4bit": true },
       };
       globalThis.fetch = mockFetchResponse(configPayload);
 

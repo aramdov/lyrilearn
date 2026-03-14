@@ -1,10 +1,25 @@
-import { describe, test, expect } from "bun:test";
+import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { render } from "@testing-library/react";
 import { createRef } from "react";
 import { YouTubePlayer } from "./YouTubePlayer";
 import type { YouTubePlayerHandle } from "./YouTubePlayer";
 
+const originalAppendChild = document.head.appendChild.bind(document.head);
+
 describe("YouTubePlayer", () => {
+  beforeEach(() => {
+    document.head.appendChild = ((node: Node) => {
+      if (node instanceof HTMLScriptElement) {
+        return node;
+      }
+      return originalAppendChild(node);
+    }) as typeof document.head.appendChild;
+  });
+
+  afterEach(() => {
+    document.head.appendChild = originalAppendChild;
+  });
+
   test("renders 'No video available' when videoId is undefined", () => {
     const { container } = render(<YouTubePlayer videoId={undefined} />);
     expect(container.textContent).toContain("No video available");

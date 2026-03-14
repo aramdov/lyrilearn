@@ -33,6 +33,9 @@ export default function App() {
   const [searchError, setSearchError] = useState<string | null>(null);
   const [lyricsSource, setLyricsSource] = useState<LyricsSource | null>(null);
 
+  // ─── Compare mode state ──────────────────────────────
+  const [compareMode, setCompareMode] = useState(false);
+
   // ─── Flashcard state ───────────────────────────────────
   const [appView, setAppView] = useState<"main" | "flashcards">("main");
   const [flashcardMode, setFlashcardMode] = useState(false);
@@ -103,6 +106,11 @@ export default function App() {
     };
     setSettings(newSettings);
     songView.refetchTranslations(newSettings);
+    // Clear compare state — the "other" provider changed
+    if (compareMode) {
+      setCompareMode(false);
+      songView.clearCompare();
+    }
   };
 
   // ─── Target language change ──────────────────────────────
@@ -192,6 +200,27 @@ export default function App() {
     setTimeout(() => setSavedToast(null), 2000);
   };
 
+  // ─── Compare mode helpers ────────────────────────────────
+  const primaryLabel = settings.provider === "cloud"
+    ? "Google"
+    : settings.localModel === "translategemma-27b-4bit"
+      ? "Local 27B"
+      : "Local 4B";
+
+  const compareLabel = settings.provider === "cloud" ? "Local 4B" : "Google";
+
+  const altProvider: Provider = settings.provider === "cloud" ? "local" : "cloud";
+  const altModel: LocalModel | undefined = settings.provider === "cloud"
+    ? "translategemma-4b-4bit"
+    : undefined;
+
+  const handleCompareModeChange = (active: boolean) => {
+    setCompareMode(active);
+    if (active && songView.compareTranslations.size === 0 && songView.currentSong) {
+      songView.fetchCompareTranslations(altProvider, altModel);
+    }
+  };
+
   // ─── Render ──────────────────────────────────────────────
   const error = searchError || songView.error;
 
@@ -206,6 +235,7 @@ export default function App() {
           setSearchError(null);
           setLyricsSource(null);
           setFlashcardMode(false);
+          setCompareMode(false);
           setAppView("main");
         }}
         onFlashcards={() => setAppView("flashcards")}
@@ -301,6 +331,8 @@ export default function App() {
               }
               flashcardMode={flashcardMode}
               onFlashcardModeChange={setFlashcardMode}
+              compareMode={compareMode}
+              onCompareModeChange={handleCompareModeChange}
             />
 
             {/* Flashcard mode banner */}
@@ -309,6 +341,18 @@ export default function App() {
                 Flashcard mode — tap words to save, tap + to save a whole line.
                 <button
                   onClick={() => setFlashcardMode(false)}
+                  className="ml-2 underline hover:no-underline"
+                >
+                  Exit
+                </button>
+              </div>
+            )}
+
+            {compareMode && (
+              <div className="rounded-md border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-xs text-blue-600 dark:text-blue-400">
+                Comparing <strong>{primaryLabel}</strong> vs <strong>{compareLabel}</strong> - identical lines show "(same)".
+                <button
+                  onClick={() => setCompareMode(false)}
                   className="ml-2 underline hover:no-underline"
                 >
                   Exit
@@ -335,6 +379,11 @@ export default function App() {
                 savedCardIds={savedCardIds}
                 onSaveWord={handleSaveWord}
                 onSaveLine={handleSaveLine}
+                compareTranslations={songView.compareTranslations}
+                comparingIds={songView.comparingIds}
+                compareMode={compareMode}
+                primaryLabel={primaryLabel}
+                compareLabel={compareLabel}
               />
             )}
           </div>

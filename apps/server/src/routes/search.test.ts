@@ -1,4 +1,4 @@
-import { describe, test, expect, mock, beforeEach } from "bun:test";
+import { describe, test, expect, mock, beforeEach, afterAll } from "bun:test";
 import { Hono } from "hono";
 import { parseSyncedLyrics, parsePlainLyrics } from "../services/lrclib";
 
@@ -69,6 +69,10 @@ beforeEach(() => {
   m.geniusResults = [];
   m.youtubeResult = null;
   m.dbData = new Map();
+});
+
+afterAll(() => {
+  mock.restore();
 });
 
 describe("POST /api/search", () => {

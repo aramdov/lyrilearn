@@ -1,4 +1,4 @@
-import { describe, test, expect, mock, beforeEach } from "bun:test";
+import { describe, test, expect, mock, beforeEach, afterAll } from "bun:test";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import type { Song, LyricLine } from "@lyrilearn/shared";
 import type { Settings } from "./useSongView";
@@ -24,7 +24,7 @@ const DEFAULT_SETTINGS: Settings = {
   sourceLang: "ru",
   targetLang: "en",
   provider: "local",
-  localModel: "translategemma-12b-4bit",
+  localModel: "translategemma-4b-4bit",
   viewMode: "side-by-side",
   showTransliteration: false,
 };
@@ -40,17 +40,19 @@ function createApiMocks() {
     () => Promise.resolve({ song: SONG, lyrics: LYRICS, translations: [] })
   );
 
-  const translateMock = mock<(text: string, sourceLang: string, targetLang: string, provider: string, lyricsId?: number, localModel?: string) => Promise<any>>(
-    (text, _s, _t, _p, lyricsId) =>
-      Promise.resolve({
-        translatedText: `[translated] ${text}`,
-        provider: "local",
-        modelVariant: "translategemma-12b-4bit",
-        latencyMs: 50,
-      })
+  const translateBatchMock = mock<(items: any[], targetLang: string, provider: string, localModel?: string) => Promise<any>>(
+    (items) =>
+      Promise.resolve(
+        items.map((item: any) => ({
+          translatedText: `[translated] ${item.text}`,
+          provider: "local",
+          modelVariant: "translategemma-12b-4bit",
+          latencyMs: 50,
+        }))
+      )
   );
 
-  return { getLyricsMock, translateMock };
+  return { getLyricsMock, translateBatchMock };
 }
 
 // We need to mock the api module before importing useSongView.
@@ -59,7 +61,7 @@ let apiMocks = createApiMocks();
 
 mock.module("@/lib/api", () => ({
   getLyrics: (...args: any[]) => apiMocks.getLyricsMock(...args),
-  translate: (...args: any[]) => apiMocks.translateMock(...args),
+  translateBatch: (...args: any[]) => apiMocks.translateBatchMock(...args),
   search: mock(() => Promise.resolve({})),
   getConfig: mock(() => Promise.resolve({})),
 }));
@@ -69,6 +71,10 @@ const { useSongView } = await import("./useSongView");
 
 beforeEach(() => {
   apiMocks = createApiMocks();
+});
+
+afterAll(() => {
+  mock.restore();
 });
 
 // ─── Tests ──────────────────────────────────────────────────
@@ -104,7 +110,7 @@ describe("useSongView", () => {
     });
 
     expect(apiMocks.getLyricsMock).toHaveBeenCalledWith(
-      1, "en", "local", "translategemma-12b-4bit"
+      1, "en", "local", "translategemma-4b-4bit"
     );
   });
 
@@ -155,9 +161,11 @@ describe("useSongView", () => {
       expect(result.current.translations.size).toBe(3); // 2 cached + 1 live
     });
 
-    // translate() should only have been called for line 13 (the only untranslated non-empty line)
-    expect(apiMocks.translateMock).toHaveBeenCalledTimes(1);
-    expect(apiMocks.translateMock.mock.calls[0][4]).toBe(13); // lyricsId arg
+    // translateBatch() should only have been called for line 13 (the only untranslated non-empty line)
+    expect(apiMocks.translateBatchMock).toHaveBeenCalledTimes(1);
+    const batchItems = apiMocks.translateBatchMock.mock.calls[0][0];
+    expect(batchItems).toHaveLength(1);
+    expect(batchItems[0].lyricsId).toBe(13);
   });
 
   test("clearSong resets all state", async () => {

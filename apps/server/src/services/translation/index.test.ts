@@ -1,4 +1,4 @@
-import { describe, test, expect, mock, beforeEach, afterEach } from "bun:test";
+import { describe, test, expect, mock, beforeEach, afterEach, afterAll } from "bun:test";
 import { Database } from "bun:sqlite";
 
 // ─── Mock fetch to control provider HTTP behavior ───────────
@@ -20,9 +20,9 @@ globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
     return new Response(
       JSON.stringify({
         status: "ok",
-        default_model: "translategemma-12b-4bit",
-        loaded_models: ["translategemma-12b-4bit"],
-        available_models: ["translategemma-12b-4bit", "translategemma-4b-4bit"],
+        default_model: "translategemma-4b-4bit",
+        loaded_models: ["translategemma-4b-4bit"],
+        available_models: ["translategemma-4b-4bit", "translategemma-4b-4bit"],
         backend: "mlx",
       }),
       { status: 200 }
@@ -35,7 +35,7 @@ globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
       JSON.stringify({
         translation: fetchMock.localTranslation,
         latency_ms: 100,
-        model: "translategemma-12b-4bit",
+        model: "translategemma-4b-4bit",
       }),
       { status: 200 }
     );
@@ -59,12 +59,9 @@ globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
 // ─── Mock DB ────────────────────────────────────────────────
 
 const dbState: { db: Database | null } = { db: null };
-
-mock.module("../../db", () => ({
-  getDb: () => dbState.db,
-}));
-
-import { translate, getProviderStatus } from "./index";
+type TranslationModule = typeof import("./index");
+let translationModule: TranslationModule;
+let importVersion = 0;
 
 // ─── Setup ──────────────────────────────────────────────────
 
@@ -95,16 +92,26 @@ function initTestDb() {
   `);
 }
 
-beforeEach(() => {
+beforeEach(async () => {
+  mock.restore();
+  mock.module("../../db", () => ({
+    getDb: () => dbState.db,
+  }));
   initTestDb();
   fetchMock.localHealthOk = false;
   // Control cloud availability via env var (read at call time by CloudProvider)
   delete (Bun.env as any).GOOGLE_CLOUD_API_KEY;
+  translationModule = await import(`./index.ts?translation-test=${importVersion++}`);
 });
 
 afterEach(() => {
   dbState.db?.close();
   delete (Bun.env as any).GOOGLE_CLOUD_API_KEY;
+});
+
+afterAll(() => {
+  mock.restore();
+  globalThis.fetch = originalFetch;
 });
 
 // ─── Priority Chain Tests ───────────────────────────────────
@@ -119,7 +126,7 @@ describe("translate() priority chain", () => {
 
     fetchMock.localHealthOk = true;
 
-    const result = await translate({
+    const result = await translationModule.translate({
       text: "Привет",
       sourceLang: "ru",
       targetLang: "en",
@@ -138,9 +145,9 @@ describe("translate() priority chain", () => {
         `INSERT INTO translations (lyrics_id, target_lang, provider, translated_text, model_variant, latency_ms)
          VALUES (?, ?, ?, ?, ?, ?)`
       )
-      .run(1, "en", "local", "cached result", "translategemma-12b-4bit", 200);
+      .run(1, "en", "local", "cached result", "translategemma-4b-4bit", 200);
 
-    const result = await translate({
+    const result = await translationModule.translate({
       text: "Привет",
       sourceLang: "ru",
       targetLang: "en",
@@ -155,7 +162,7 @@ describe("translate() priority chain", () => {
   test("3. live translation when no cache", async () => {
     fetchMock.localHealthOk = true;
 
-    const result = await translate({
+    const result = await translationModule.translate({
       text: "Привет",
       sourceLang: "ru",
       targetLang: "en",
@@ -170,7 +177,7 @@ describe("translate() priority chain", () => {
   test("3b. live translation is cached for future lookups", async () => {
     fetchMock.localHealthOk = true;
 
-    await translate({
+    await translationModule.translate({
       text: "Привет",
       sourceLang: "ru",
       targetLang: "en",
@@ -191,7 +198,7 @@ describe("translate() priority chain", () => {
     fetchMock.localHealthOk = false;
     Bun.env.GOOGLE_CLOUD_API_KEY = "test-key";
 
-    const result = await translate({
+    const result = await translationModule.translate({
       text: "Привет",
       sourceLang: "ru",
       targetLang: "en",
@@ -207,7 +214,7 @@ describe("translate() priority chain", () => {
     fetchMock.localHealthOk = false;
 
     expect(
-      translate({
+      translationModule.translate({
         text: "Привет",
         sourceLang: "ru",
         targetLang: "en",
@@ -219,7 +226,7 @@ describe("translate() priority chain", () => {
   test("works without lyricsId (no caching)", async () => {
     fetchMock.localHealthOk = true;
 
-    const result = await translate({
+    const result = await translationModule.translate({
       text: "Привет",
       sourceLang: "ru",
       targetLang: "en",
@@ -237,7 +244,7 @@ describe("translate() priority chain", () => {
   test("cloud provider uses correct model variant for cache key", async () => {
     Bun.env.GOOGLE_CLOUD_API_KEY = "test-key";
 
-    await translate({
+    await translationModule.translate({
       text: "Hello",
       sourceLang: "en",
       targetLang: "ru",
@@ -257,7 +264,7 @@ describe("translate() priority chain", () => {
 
 describe("getProviderStatus()", () => {
   test("reports all unavailable", async () => {
-    const status = await getProviderStatus();
+    const status = await translationModule.getProviderStatus();
     expect(status.local).toBe(false);
     expect(status.cloud).toBe(false);
   });
@@ -265,7 +272,7 @@ describe("getProviderStatus()", () => {
   test("reports local available, cloud unavailable", async () => {
     fetchMock.localHealthOk = true;
 
-    const status = await getProviderStatus();
+    const status = await translationModule.getProviderStatus();
     expect(status.local).toBe(true);
     expect(status.cloud).toBe(false);
   });
@@ -273,7 +280,7 @@ describe("getProviderStatus()", () => {
   test("reports cloud available when API key set", async () => {
     Bun.env.GOOGLE_CLOUD_API_KEY = "test-key";
 
-    const status = await getProviderStatus();
+    const status = await translationModule.getProviderStatus();
     expect(status.cloud).toBe(true);
   });
 });
