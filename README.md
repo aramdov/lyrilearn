@@ -165,7 +165,7 @@ bun run db:init
 |-------|-------------|--------|
 | **Phase 1** | Translation Engine + Core Backend | **Complete** |
 | **Phase 2** | Frontend Core (React, search, lyrics view, YouTube, provider toggle) | **Complete** |
-| **Phase 3** | Karaoke sync + Transliteration | Up Next |
+| **Phase 3** | Karaoke sync + Transliteration | **Complete** |
 | Phase 4 | Flashcards (IndexedDB) | Planned |
 | Phase 5 | Polish + Deploy | Planned |
 
@@ -194,6 +194,16 @@ React SPA with all core UI components:
 - Concurrent translation loading (5 parallel workers) with per-line progress
 - Generation-based staleness protection for rapid provider/language switching
 - Typed API client wrapping all backend endpoints
+
+### Phase 3 — Complete
+
+Karaoke sync, transliteration, and UX polish:
+- Karaoke view mode with time-synced lyric highlighting (polls YouTube player, binary-searches timestamps)
+- Client-side transliteration via `any-ascii` for non-Latin scripts (Cyrillic, CJK, Arabic, Armenian)
+- Multi-video selection — search results show YouTube thumbnails, user picks which video
+- Translation error surfacing — amber banner with fail count, error message, and fix hints
+- Lyrics source attribution — shows "LRCLIB (synced)" / "LRCLIB (plain)" in search results and song header
+- Provider toggle shows model quantization (4-bit)
 
 ## License
 

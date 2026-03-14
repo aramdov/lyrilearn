@@ -48,6 +48,7 @@ searchRoutes.post("/", async (c) => {
 
     // 4. Get detailed lyrics if we found a match
     let lyrics: LyricLine[] = [];
+    let lyricsSource: "lrclib-synced" | "lrclib-plain" | "none" = "none";
     if (topLrclib) {
       // Try to get synced lyrics first
       const detailed = await getLrclibLyrics(
@@ -58,6 +59,7 @@ searchRoutes.post("/", async (c) => {
       const lrcData = detailed || topLrclib;
 
       if (lrcData.syncedLyrics) {
+        lyricsSource = "lrclib-synced";
         lyrics = parseSyncedLyrics(lrcData.syncedLyrics).map((l, i) => ({
           id: 0, // assigned on DB insert
           songId: 0,
@@ -67,6 +69,7 @@ searchRoutes.post("/", async (c) => {
           endTime: l.endTime ?? undefined,
         }));
       } else if (lrcData.plainLyrics) {
+        lyricsSource = "lrclib-plain";
         lyrics = parsePlainLyrics(lrcData.plainLyrics).map((l) => ({
           id: 0,
           songId: 0,
@@ -78,7 +81,11 @@ searchRoutes.post("/", async (c) => {
       }
     }
 
-    // 5. Compose song metadata
+    // 5. Determine metadata source
+    const metadataSource: "lrclib" | "genius" | "query-fallback" =
+      topLrclib ? "lrclib" : topGenius ? "genius" : "query-fallback";
+
+    // Compose song metadata
     const song: Song = {
       id: 0,
       title: topLrclib?.trackName || topGenius?.title || query,
@@ -150,9 +157,9 @@ searchRoutes.post("/", async (c) => {
       }
     }
 
-    const result = { song, lyrics, youtubeResults };
+    const result = { song, lyrics, youtubeResults, lyricsSource, metadataSource };
 
-    // 7. Cache the search result
+    // 8. Cache the search result
     db.query(
       `INSERT OR REPLACE INTO search_cache (query, source_lang, result_json, expires_at)
        VALUES (?, ?, ?, datetime('now', '+7 days'))`

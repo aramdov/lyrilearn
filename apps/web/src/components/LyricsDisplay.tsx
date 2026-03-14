@@ -17,6 +17,11 @@ interface LyricsDisplayProps {
   savedCardIds?: Set<string>;
   onSaveWord?: (lineId: number, word: string, startIdx: number, endIdx: number) => void;
   onSaveLine?: (lineId: number) => void;
+  compareTranslations?: Map<number, LyricsTranslation>;
+  comparingIds?: Set<number>;
+  compareMode?: boolean;
+  primaryLabel?: string;
+  compareLabel?: string;
 }
 
 export function LyricsDisplay({
@@ -32,6 +37,11 @@ export function LyricsDisplay({
   savedCardIds,
   onSaveWord,
   onSaveLine,
+  compareTranslations,
+  comparingIds,
+  compareMode = false,
+  primaryLabel,
+  compareLabel,
 }: LyricsDisplayProps) {
   if (lyrics.length === 0) {
     return (
@@ -54,14 +64,19 @@ export function LyricsDisplay({
         savedCardIds={savedCardIds}
         onSaveWord={onSaveWord}
         onSaveLine={onSaveLine}
+        compareTranslations={compareTranslations}
+        comparingIds={comparingIds}
+        compareMode={compareMode}
+        primaryLabel={primaryLabel}
+        compareLabel={compareLabel}
       />
     );
   }
 
   if (viewMode === "side-by-side") {
-    return <SideBySideView lyrics={lyrics} translations={translations} translatingIds={translatingIds} showTransliteration={showTransliteration} transliterate={transliterate} translationError={translationError} flashcardMode={flashcardMode} savedCardIds={savedCardIds} onSaveWord={onSaveWord} onSaveLine={onSaveLine} />;
+    return <SideBySideView lyrics={lyrics} translations={translations} translatingIds={translatingIds} showTransliteration={showTransliteration} transliterate={transliterate} translationError={translationError} flashcardMode={flashcardMode} savedCardIds={savedCardIds} onSaveWord={onSaveWord} onSaveLine={onSaveLine} compareTranslations={compareTranslations} comparingIds={comparingIds} compareMode={compareMode} primaryLabel={primaryLabel} compareLabel={compareLabel} />;
   }
-  return <InterleavedView lyrics={lyrics} translations={translations} translatingIds={translatingIds} showTransliteration={showTransliteration} transliterate={transliterate} translationError={translationError} flashcardMode={flashcardMode} savedCardIds={savedCardIds} onSaveWord={onSaveWord} onSaveLine={onSaveLine} />;
+  return <InterleavedView lyrics={lyrics} translations={translations} translatingIds={translatingIds} showTransliteration={showTransliteration} transliterate={transliterate} translationError={translationError} flashcardMode={flashcardMode} savedCardIds={savedCardIds} onSaveWord={onSaveWord} onSaveLine={onSaveLine} compareTranslations={compareTranslations} comparingIds={comparingIds} compareMode={compareMode} primaryLabel={primaryLabel} compareLabel={compareLabel} />;
 }
 
 // ─── Side by Side ───────────────────────────────────────────
@@ -77,6 +92,11 @@ function SideBySideView({
   savedCardIds,
   onSaveWord,
   onSaveLine,
+  compareTranslations,
+  comparingIds,
+  compareMode,
+  primaryLabel,
+  compareLabel,
 }: Omit<LyricsDisplayProps, "viewMode">) {
   return (
     <div className="grid grid-cols-2 gap-x-6 gap-y-1 py-4">
@@ -116,6 +136,9 @@ function SideBySideView({
                 </span>
               ) : translation ? (
                 <span className="text-sm text-muted-foreground">
+                  {compareMode && primaryLabel && (
+                    <span className="text-[10px] text-muted-foreground/50 mr-1">[{primaryLabel}]</span>
+                  )}
                   {translation.translatedText}
                 </span>
               ) : line.text.trim() ? (
@@ -125,6 +148,31 @@ function SideBySideView({
               ) : (
                 <span>{"\u00A0"}</span>
               )}
+              {compareMode && line.text.trim() && (() => {
+                const cmp = compareTranslations?.get(line.id);
+                const isComparing = comparingIds?.has(line.id);
+                const isSame = cmp && translation && cmp.translatedText === translation.translatedText;
+                return (
+                  <div className="mt-0.5">
+                    {isComparing ? (
+                      <span className="text-sm text-muted-foreground/40 animate-pulse">Translating...</span>
+                    ) : isSame ? (
+                      <span className="text-sm text-muted-foreground/30 italic">
+                        <span className="text-[10px] mr-1">[{compareLabel}]</span>(same)
+                      </span>
+                    ) : cmp ? (
+                      <span className="text-sm text-muted-foreground/60">
+                        <span className="text-[10px] text-muted-foreground/40 mr-1">[{compareLabel}]</span>
+                        {cmp.translatedText}
+                      </span>
+                    ) : (
+                      <span className="text-sm text-muted-foreground/30">
+                        <span className="text-[10px] mr-1">[{compareLabel}]</span>—
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         );
@@ -146,6 +194,11 @@ function InterleavedView({
   savedCardIds,
   onSaveWord,
   onSaveLine,
+  compareTranslations,
+  comparingIds,
+  compareMode,
+  primaryLabel,
+  compareLabel,
 }: Omit<LyricsDisplayProps, "viewMode">) {
   return (
     <div className="space-y-3 py-4">
@@ -175,6 +228,9 @@ function InterleavedView({
             )}
             {line.text.trim() && (
               <p className="text-xs text-muted-foreground mt-0.5">
+                {compareMode && primaryLabel && (
+                  <span className="text-[10px] text-muted-foreground/50 mr-1">[{primaryLabel}]</span>
+                )}
                 {isTranslating
                   ? "Translating..."
                   : translation
@@ -184,6 +240,31 @@ function InterleavedView({
                       : "Translation unavailable"}
               </p>
             )}
+            {compareMode && line.text.trim() && (() => {
+              const cmp = compareTranslations?.get(line.id);
+              const isComparing = comparingIds?.has(line.id);
+              const isSame = cmp && translation && cmp.translatedText === translation.translatedText;
+              return (
+                <p className="text-xs mt-0.5">
+                  {isComparing ? (
+                    <span className="text-muted-foreground/40 animate-pulse">Translating...</span>
+                  ) : isSame ? (
+                    <span className="text-muted-foreground/30 italic">
+                      <span className="text-[10px] mr-1">[{compareLabel}]</span>(same)
+                    </span>
+                  ) : cmp ? (
+                    <span className="text-muted-foreground/60">
+                      <span className="text-[10px] text-muted-foreground/40 mr-1">[{compareLabel}]</span>
+                      {cmp.translatedText}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground/30">
+                      <span className="text-[10px] mr-1">[{compareLabel}]</span>—
+                    </span>
+                  )}
+                </p>
+              );
+            })()}
           </div>
         );
       })}

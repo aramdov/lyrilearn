@@ -15,6 +15,11 @@ interface KaraokeViewProps {
   savedCardIds?: Set<string>;
   onSaveWord?: (lineId: number, word: string, startIdx: number, endIdx: number) => void;
   onSaveLine?: (lineId: number) => void;
+  compareTranslations?: Map<number, LyricsTranslation>;
+  comparingIds?: Set<number>;
+  compareMode?: boolean;
+  primaryLabel?: string;
+  compareLabel?: string;
 }
 
 export function KaraokeView({
@@ -28,6 +33,11 @@ export function KaraokeView({
   savedCardIds,
   onSaveWord,
   onSaveLine,
+  compareTranslations,
+  comparingIds,
+  compareMode = false,
+  primaryLabel,
+  compareLabel,
 }: KaraokeViewProps) {
   const lineRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
@@ -88,6 +98,9 @@ export function KaraokeView({
 
             {line.text.trim() && (
               <p className="text-xs text-muted-foreground mt-0.5">
+                {compareMode && primaryLabel && (
+                  <span className="text-[10px] text-muted-foreground/50 mr-1">[{primaryLabel}]</span>
+                )}
                 {isTranslating
                   ? "Translating..."
                   : translation
@@ -95,6 +108,31 @@ export function KaraokeView({
                     : "Translation unavailable"}
               </p>
             )}
+            {compareMode && line.text.trim() && (() => {
+              const cmp = compareTranslations?.get(line.id);
+              const isComparing = comparingIds?.has(line.id);
+              const isSame = cmp && translation && cmp.translatedText === translation.translatedText;
+              return (
+                <p className="text-xs mt-0.5">
+                  {isComparing ? (
+                    <span className="text-muted-foreground/40 animate-pulse">Translating...</span>
+                  ) : isSame ? (
+                    <span className="text-muted-foreground/30 italic">
+                      <span className="text-[10px] mr-1">[{compareLabel}]</span>(same)
+                    </span>
+                  ) : cmp ? (
+                    <span className="text-muted-foreground/60">
+                      <span className="text-[10px] text-muted-foreground/40 mr-1">[{compareLabel}]</span>
+                      {cmp.translatedText}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground/30">
+                      <span className="text-[10px] mr-1">[{compareLabel}]</span>—
+                    </span>
+                  )}
+                </p>
+              );
+            })()}
           </div>
         );
       })}

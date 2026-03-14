@@ -29,10 +29,15 @@ export interface YouTubeResult {
   thumbnailUrl?: string;
 }
 
+export type LyricsSource = "lrclib-synced" | "lrclib-plain" | "none";
+export type MetadataSource = "lrclib" | "genius" | "query-fallback";
+
 export interface SearchResponse {
   song: Song;
   lyrics: LyricLine[];
   youtubeResults: YouTubeResult[];
+  lyricsSource: LyricsSource;
+  metadataSource: MetadataSource;
 }
 
 export function search(
@@ -90,6 +95,38 @@ export function translate(
       provider,
       localModel,
       lyricsId,
+    }),
+  });
+}
+
+// ─── Batch Translate ─────────────────────────────────────────
+
+export interface BatchTranslateItem {
+  text: string;
+  sourceLang: string;
+  lyricsId?: number;
+}
+
+export interface BatchTranslateResultItem {
+  translatedText: string;
+  provider: string;
+  modelVariant?: string;
+  latencyMs: number;
+}
+
+export function translateBatch(
+  items: BatchTranslateItem[],
+  targetLang: string,
+  provider: Provider,
+  localModel?: LocalModel
+): Promise<(BatchTranslateResultItem | null)[]> {
+  return request("/translate/batch", {
+    method: "POST",
+    body: JSON.stringify({
+      items,
+      targetLang,
+      provider,
+      localModel,
     }),
   });
 }

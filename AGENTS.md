@@ -1,4 +1,4 @@
-# CLAUDE.md — LyriLearn Project Context
+# AGENTS.md — LyriLearn Project Context
 
 ## What is this project?
 
@@ -90,7 +90,7 @@ lyri-learn/
 ├── docs/
 │   └── PLAN.md                     # Full architecture plan
 │
-├── CLAUDE.md                       # This file
+├── AGENTS.md                       # This file
 ├── README.md
 └── package.json                    # Bun workspace root
 ```

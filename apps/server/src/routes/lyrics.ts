@@ -18,7 +18,7 @@ lyricsRoutes.get("/:songId", async (c) => {
   const provider = c.req.query("provider") || "local";
   const modelVariant =
     provider === "local"
-      ? c.req.query("localModel") || "translategemma-12b-4bit"
+      ? c.req.query("localModel") || "translategemma-4b-4bit"
       : "google-cloud-v2";
 
   const db = getDb();

@@ -58,6 +58,46 @@ export class CloudProvider implements TranslationProvider {
     };
   }
 
+  async translateBatch(
+    texts: string[],
+    sourceLang: string,
+    targetLang: string
+  ): Promise<TranslationResult[]> {
+    const apiKey = getApiKey();
+    if (!apiKey) {
+      throw new Error("GOOGLE_CLOUD_API_KEY not configured");
+    }
+
+    const start = performance.now();
+
+    const params = new URLSearchParams({
+      source: sourceLang,
+      target: targetLang,
+      key: apiKey,
+      format: "text",
+    });
+    for (const text of texts) {
+      params.append("q", text);
+    }
+
+    const res = await fetch(`${GOOGLE_TRANSLATE_URL}?${params}`);
+
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Google Translate batch error (${res.status}): ${body}`);
+    }
+
+    const data: GoogleTranslateResponse = await res.json();
+    const elapsed = Math.round(performance.now() - start);
+
+    return data.data.translations.map((t) => ({
+      translatedText: t.translatedText,
+      provider: "cloud" as const,
+      modelVariant: "google-cloud-v2",
+      latencyMs: elapsed,
+    }));
+  }
+
   async isAvailable(): Promise<boolean> {
     return !!getApiKey();
   }

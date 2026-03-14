@@ -28,6 +28,8 @@ interface LyricsToolbarProps {
   onTransliterationChange: (show: boolean) => void;
   flashcardMode?: boolean;
   onFlashcardModeChange?: (active: boolean) => void;
+  compareMode?: boolean;
+  onCompareModeChange?: (active: boolean) => void;
 }
 
 const LANGUAGES = [
@@ -61,6 +63,8 @@ export function LyricsToolbar({
   onTransliterationChange,
   flashcardMode = false,
   onFlashcardModeChange,
+  compareMode = false,
+  onCompareModeChange,
 }: LyricsToolbarProps) {
   const providerValue =
     provider === "cloud" ? "cloud" : `local-${localModel}`;
@@ -133,9 +137,19 @@ export function LyricsToolbar({
           disabled={config ? !config.cloud : false}
           className="text-xs px-3"
         >
-          Google
+          Google Translate
         </ToggleGroupItem>
       </ToggleGroup>
+
+      {/* Compare toggle */}
+      <Toggle
+        pressed={compareMode}
+        onPressedChange={onCompareModeChange}
+        className="text-xs px-3 border"
+        aria-label="Toggle translation comparison mode"
+      >
+        Compare
+      </Toggle>
 
       {/* View mode toggle */}
       <ToggleGroup

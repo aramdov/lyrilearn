@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS translations (
     provider        TEXT NOT NULL DEFAULT 'local',
     translated_text TEXT NOT NULL,
     transliteration TEXT,
-    model_variant   TEXT NOT NULL DEFAULT 'translategemma-12b-4bit',
+    model_variant   TEXT NOT NULL DEFAULT 'translategemma-4b-4bit',
     latency_ms      REAL,
     created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(lyrics_id, target_lang, provider, model_variant)

@@ -39,7 +39,7 @@ export async function searchYouTube(
     q: query,
     type: "video",
     videoCategoryId: "10", // Music category
-    maxResults: "5",
+    maxResults: "10",
     key: YOUTUBE_API_KEY,
   });
 
